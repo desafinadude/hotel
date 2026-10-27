@@ -63,12 +63,14 @@ function newGame({ bots = 1, humans = 1, botDelay } = {}) {
       name: isBot ? BOT_NAMES[(i - humans) % BOT_NAMES.length] : humans > 1 ? 'Player ' + (i + 1) : 'You',
       isBot,
       color: PLAYER_COLORS[i],
+      avatar: PLAYER_AVATARS[i],
       money: 10,
       vp: 0,
       emp: 0,
       kitchen: { s: 1, c: 1, w: 1, k: 1 },
       cafe: [null, null, null],
       rooms: Array.from({ length: ROWS }, () => Array(COLS).fill(null)),
+      guestIn: {}, // 'r,c' -> guest id of whoever checked into that room
       claimedGroups: {},
       hand: [],
       staff: [],
@@ -308,6 +310,7 @@ function checkGroup(p, r, c) {
 
 function removeRoom(p, r, c) {
   p.rooms[r][c] = null;
+  delete p.guestIn[key(r, c)];
   delete p.claimedGroups[GROUP_OF[key(r, c)]];
 }
 
@@ -372,6 +375,7 @@ async function checkIn(p, idx) {
   if (!cell) return false;
   p.cafe[idx] = null;
   p.rooms[cell.r][cell.c] = 'occ';
+  p.guestIn[key(cell.r, cell.c)] = g.id;
   addVP(p, g.vp);
   if (hasStaff(p, 23)) addMoney(p, 1);
   if (g.color === 'Y' && hasStaff(p, 7)) addMoney(p, 1);

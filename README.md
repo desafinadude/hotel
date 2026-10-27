@@ -8,12 +8,21 @@ No build step and no dependencies: open `index.html` in a browser, or serve the 
 
 | File | What it does |
 | --- | --- |
-| `index.html`, `style.css` | Page shell and styling (light and dark mode) |
+| `index.html`, `style.css` | Page shell and styling: ivory and navy, Cormorant Garamond over Inter, light and dark mode |
 | `js/data.js` | Guests, staff, politics cards, emperor tiles, hotel board layout |
 | `js/engine.js` | Rules engine (rounds, dice, passing/re-rolls, rooms, guests, staff, scoring) |
 | `js/bot.js` | Heuristic bot player |
-| `js/ui.js` | Rendering and touch input |
+| `js/ui.js` | Rendering and touch input: Table, Hotel, Staff and Log tabs, bottom sheets for choices |
 | `test/sim.js` | Headless bot-vs-bot simulation: `node test/sim.js [games] [players]` |
+
+## Screens
+
+- **Table** — players, the six dice spaces, guests arriving (tap for details / to invite), your café and kitchen.
+- **Hotel** — points, krone and Emperor position, your 4×5 hotel (room choices are made here), the Emperor track.
+- **Staff** — hired staff (use once-per-round staff here) and the cards in your hand.
+- **Log** — everything that has happened this game.
+
+Pictures are emoji and inline SVG for now (one emoji per guest and staff card, in `js/data.js`).
 
 ## Rules implemented
 
@@ -25,6 +34,6 @@ emperor scoring after rounds 3/5/7 and final scoring.
 Simplifications / assumptions for this first version:
 
 - Food and drink you receive is placed on guest orders automatically (fullest guest first); extras go to the kitchen.
-- Guest orders and VP values are approximations (the reference material listed rewards but not the exact orders).
+- Guest names, VP and rewards follow the "Staff & Guest Cards by number" reference (cards 49–104). Guest orders are approximations (the reference does not list them).
 - Group-occupancy bonuses, emperor-track VP, politics VP values and guest-slot costs are best readings of the board.
 - Only the front (identical) hotel board is used, and staff are dealt 6 at random (standard setup).
