@@ -4,6 +4,9 @@ A mobile-first (portrait) browser version of **Grand Austria Hotel** for one pla
 No build step and no dependencies: open `index.html` in a browser, or serve the folder with any static host
 (e.g. GitHub Pages).
 
+It is deployed to GitHub Pages by `.github/workflows/pages.yml` on every push to `main`
+(after a quick bot-vs-bot simulation passes). It can also be run by hand from the Actions tab.
+
 ## Files
 
 | File | What it does |
