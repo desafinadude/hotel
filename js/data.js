@@ -1,13 +1,14 @@
 // Static game data for Grand Hotel.
-// Rules follow the Grand Austria Hotel rulebook; guest orders/VP and a few board
-// numbers are approximations where the reference material did not list them.
+// Rules follow the Grand Austria Hotel rulebook. Guest and staff text follows the
+// "Staff & Guest Cards by number" reference; guest orders and a few board numbers
+// are approximations where the reference material did not list them.
 
 const CUBES = ['s', 'c', 'w', 'k'];
 const CUBE_INFO = {
-  s: { name: 'Strudel', plural: 'strudel', css: '#9a6233' },
-  c: { name: 'Cake', plural: 'cake', css: '#f6f1e7' },
-  w: { name: 'Wine', plural: 'wine', css: '#b3202e' },
-  k: { name: 'Coffee', plural: 'coffee', css: '#2a2220' },
+  s: { name: 'Strudel', plural: 'strudel', css: '#9a6233', emoji: '🥐' },
+  c: { name: 'Cake', plural: 'cake', css: '#f6f1e7', emoji: '🍰' },
+  w: { name: 'Wine', plural: 'wine', css: '#b3202e', emoji: '🍷' },
+  k: { name: 'Coffee', plural: 'coffee', css: '#2a2220', emoji: '☕' },
 };
 
 const COLORS = {
@@ -43,73 +44,77 @@ const ACTION_NAMES = {
   5: 'Hire staff',
   6: 'Any action',
 };
+const ACTION_EMOJI = { 1: '🥐🍰', 2: '🍷☕', 3: '🛏️', 4: '👑💰', 5: '🤵', 6: '✨' };
 
 // Guest rewards are written as short tokens:
 //  k3 krone, e2 emperor steps, v2 VP, c:w cube of a colour (c:any = choice),
 //  g free guest, r room (pay), r1 room (-1), r0 room free, r12 free room on floor 1-2,
 //  t:R turn a room occupied (t:any), s3 hire staff at -3 (s99 = free),
 //  d2 draw staff, x3 draw 3 hire one at -3 (x99 = free), a another turn.
+// Guest cards, numbered as in the "Staff & Guest Cards by number" reference (49-104).
+// [card no, name, colour, order, VP, reward tokens, emoji]
+// Names, VP and rewards follow that reference; orders are our best reading (it does not list them).
 const GUEST_DEFS = [
-  // Citizens (red)
-  ['Amtsrat', 'R', 'wk', 3, 'g'],
-  ['Geheimrat', 'R', 'ss', 4, 'k1 e1'],
-  ['General', 'R', 'kwc', 4, 'c:w k3'],
-  ['Generalprokurator', 'R', 'wwkc', 3, 'r0 r0'],
-  ['Hofrat', 'R', 'wkcs', 3, 'k3 g'],
-  ['Kommerzialrat', 'R', 'kks', 3, 'k5'],
-  ['Magister', 'R', 'ws', 5, 'k1'],
-  ['Major', 'R', 'wwk', 4, 'k3'],
-  ['Ministerialrat', 'R', 'kcs', 4, 'c:k k3'],
-  ['Oberkommissär', 'R', 'wks', 5, 'k4'],
-  ['Obermedizinalrat', 'R', 'wwcs', 4, 'k3 g'],
-  ['Oberrat', 'R', 'kc', 2, 't:R'],
-  ['Professor', 'R', 'ccs', 5, 'g'],
-  ['Veterinärrat', 'R', 'ws', 3, 's3'],
-  // Tourists (green)
-  ['Bauer Franz', 'G', 'wwkk', 4, 't:any e3'],
-  ['Bruder Uwe', 'G', 'kcss', 3, 'g e3'],
-  ['Cramersopholus', 'G', 'wcs', 4, 'd1 e2'],
-  ['Durgoing', 'G', 'kc', 3, 'd2'],
-  ['E. Gizia', 'G', 'wkcs', 3, 'a'],
-  ['Herr Horsa', 'G', 'ss', 4, 'e1'],
-  ['Herr Oundo', 'G', 'wkc', 3, 's3'],
-  ['Kondukteur', 'G', 'kks', 4, 't:Y e1'],
-  ['Kpt. Goldhaken', 'G', 'wc', 5, 'k1'],
-  ['M. Polo', 'G', 'wks', 4, 'k4'],
-  ['MacLeod', 'G', 'wwkc', 3, 's99'],
-  ['Michael Ingalls', 'G', 'ks', 4, 's1'],
-  ['Mr. Boydell', 'G', 'wcc', 5, 'e2'],
-  ['Tezcatlipoca', 'G', 'wkss', 4, 'd3'],
-  // Nobles (blue)
-  ['Baroness', 'B', 'wkc', 5, 'g'],
-  ['Baronin', 'B', 'wwkc', 5, 'x3'],
-  ['Freiherr', 'B', 'wc', 4, 'r0'],
-  ['Fürst', 'B', 'kkcs', 5, 'd2 e2'],
-  ['Graf', 'B', 'wkss', 4, 's1 s1'],
-  ['Gräfin', 'B', 'cs', 5, 'k3'],
-  ['Herzog', 'B', 'wkcc', 4, 'x99'],
-  ['Herzogin', 'B', 'kc', 5, 's1'],
-  ['Kurfürst', 'B', 'wkcs', 5, 's1 k3'],
-  ['Landgraf', 'B', 'wws', 4, 's1 r'],
-  ['Prinz', 'B', 'kks', 5, 't:B'],
-  ['Prinzessin', 'B', 'wcs', 6, 'e3'],
-  ['Reichsgraf', 'B', 'ks', 6, 'k1'],
-  ['Reichsritter', 'B', 'wc', 3, ''],
   // Artists (yellow)
-  ['Architekt', 'Y', 'wkcs', 3, 'r1 r1'],
-  ['Bildhauer', 'Y', 'wc', 1, 'r12'],
-  ['Burgschauspielerin', 'Y', 'kc', 3, 't:any'],
-  ['Dichter', 'Y', 'wks', 3, 'c:c s2'],
-  ['Fotograf', 'Y', 'ks', 4, 'd2'],
-  ['Kammersängerin', 'Y', 'wwkc', 3, 'c:w s3'],
-  ['Komponist', 'Y', 'cs', 4, 'c:s'],
-  ['Maler', 'Y', 'wkcs', 4, 'r1 r'],
-  ['Musiker', 'Y', 'wkc', 3, 'r d1'],
-  ['Opernsängerin', 'Y', 'wwcs', 4, 'g e3'],
-  ['Portraitmaler', 'Y', 'kcs', 3, 'c:any k2'],
-  ['Schmuckdesigner', 'Y', 'wcs', 3, 'c:k k3'],
-  ['Schneider', 'Y', 'kks', 4, 'c:c k2'],
-  ['Tänzerin', 'Y', 'wcs', 3, 'c:w e2'],
+  [49, 'Sculptor', 'Y', 'wc', 0, 'r12', '🗿'],
+  [50, 'Musician', 'Y', 'wkc', 0, 'r d1', '🎻'],
+  [51, 'Composer', 'Y', 'cs', 1, 'c:s', '🎼'],
+  [52, 'Tailor', 'Y', 'kks', 0, 'c:s k2', '🧵'],
+  [53, 'Dancer', 'Y', 'wcs', 0, 'c:k e2', '💃'],
+  [54, 'Portrait Painter', 'Y', 'kcs', 0, 'c:any k2', '🖼️'],
+  [55, 'Photographer', 'Y', 'ks', 7, 'd2', '📷'],
+  [56, 'Vocalist', 'Y', 'wwkc', 0, 'c:c s3', '🎤'],
+  [57, 'Architect', 'Y', 'wkcs', 1, 'r1 r1', '📐'],
+  [58, 'Actress', 'Y', 'kc', 7, 't:any', '🎬'],
+  [59, 'Poet', 'Y', 'wks', 5, 'c:c s2', '🪶'],
+  [60, 'Jewelry Designer', 'Y', 'wcs', 5, 'c:k k3', '💍'],
+  [61, 'Painter', 'Y', 'wkcs', 2, 'r1 r', '🎨'],
+  [62, 'Opera Singer', 'Y', 'wwcs', 4, 'g e3', '🎭'],
+  // Nobles (blue)
+  [63, 'Dame', 'B', 'wkc', 0, 'g', '🌹'],
+  [64, 'Duchess', 'B', 'kc', 0, 's1', '🦢'],
+  [65, 'Knight of the Empire', 'B', 'wc', 3, '', '⚔️'],
+  [66, 'Landgrave', 'B', 'wws', 3, 's1 r', '🏰'],
+  [67, 'Sovereign', 'B', 'kkcs', 2, 'd2 e2', '🦅'],
+  [68, 'Princess', 'B', 'wcs', 4, 'e3', '👸'],
+  [69, 'Countess', 'B', 'cs', 7, 'k3', '🪭'],
+  [70, 'Elector', 'B', 'wkcs', 1, 's1 e3', '📜'],
+  [71, 'Baron', 'B', 'wc', 4, 'r0', '🎩'],
+  [72, 'Prince', 'B', 'kks', 7, 't:any', '🤴'],
+  [73, 'Count', 'B', 'wkss', 4, 's1 s1', '🗝️'],
+  [74, 'Earl', 'B', 'ks', 10, 'k1', '🦌'],
+  [75, 'Baroness', 'B', 'wwkc', 5, 'x99', '💎'],
+  [76, 'Duke', 'B', 'wkcc', 4, 'x99', '🏇'],
+  // Citizens (red)
+  [77, 'Apothecary', 'R', 'ws', 1, 'k1', '⚗️'],
+  [78, 'Post Councillor', 'R', 'wk', 0, 'g', '📮'],
+  [79, 'Privy Councillor', 'R', 'ss', 0, 'k1 e1', '🔏'],
+  [80, 'Professor Emeritus', 'R', 'ccs', 4, 'g', '🎓'],
+  [81, 'General', 'R', 'kwc', 0, 'c:w k3', '🪖'],
+  [82, 'Senior Councillor', 'R', 'kc', 7, 't:any', '🏛️'],
+  [83, 'Councillor of Commerce', 'R', 'kks', 0, 'k5', '💼'],
+  [84, 'Court Counsellor', 'R', 'wkcs', 2, 'k3 g', '⚖️'],
+  [85, 'Major', 'R', 'wwk', 3, 'k3', '🎖️'],
+  [86, 'Veterinary Councillor', 'R', 'ws', 3, 's3', '🐴'],
+  [87, 'Medical Councillor', 'R', 'wwcs', 3, 'k3 g g', '🩺'],
+  [88, 'Procurator', 'R', 'wwkc', 0, 'r0 r0', '📋'],
+  [89, 'Lord High Commissioner', 'R', 'wks', 5, 'k4', '🏅'],
+  [90, 'Senior Legal Secretary', 'R', 'kcs', 7, 'c:w k3', '🖋️'],
+  // Tourists (green)
+  [91, 'Tezcatlipoca', 'G', 'wkss', 0, 'd3', '🐆'],
+  [92, 'Capt. Goldhaken', 'G', 'wc', 0, 'k1', '⚓'],
+  [93, 'Mr. Horsa', 'G', 'ss', 0, 'e1', '🐎'],
+  [94, 'Michael Ingalls', 'G', 'ks', 0, 's1', '🤠'],
+  [95, 'Mr. Boydell', 'G', 'wcc', 2, 'e2', '📚'],
+  [96, 'Mr. Oundo', 'G', 'wkc', 0, 's3', '🌍'],
+  [97, 'E. Gizia', 'G', 'wkcs', 4, 'a', '🗺️'],
+  [98, 'M. Polo', 'G', 'wks', 0, 'k4', '🧭'],
+  [99, 'Cramersopholus', 'G', 'wcs', 5, 'd1 e2', '🔭'],
+  [100, 'Farmer Franz', 'G', 'wwkk', 4, 't:any e3', '🌾'],
+  [101, 'Brother Uwe', 'G', 'kcss', 3, 'g e3', '🍺'],
+  [102, 'Conductor', 'G', 'kks', 0, 't:any e1', '🚂'],
+  [103, 'Durgoing', 'G', 'kc', 4, 'd2', '🧳'],
+  [104, 'MacLeod', 'G', 'wwkc', 2, 's99', '🏔️'],
 ];
 
 function parseReward(tok) {
@@ -124,9 +129,11 @@ function parseReward(tok) {
   return { t: tok[0], n: parseInt(tok.slice(1), 10) };
 }
 
-const GUESTS = GUEST_DEFS.map(([name, color, order, vp, rw], i) => ({
+const GUESTS = GUEST_DEFS.map(([no, name, color, order, vp, rw, emoji], i) => ({
   id: i,
+  no,
   name,
+  emoji,
   color,
   order: order.split(''),
   vp,
@@ -184,7 +191,14 @@ const STAFF_DEFS = [
   [47, 'Liftboy', 4, 'end', 'Game end: 5 VP per fully occupied column.'],
   [48, 'Hotel Manager', 4, 'end', 'Game end: 4 VP per set of 3 occupied rooms of different colours.'],
 ];
-const STAFF = STAFF_DEFS.map(([id, name, cost, type, text]) => ({ id, name, cost, type, text }));
+const STAFF_EMOJI = {
+  1: '🥐', 2: '🍰', 3: '🍷', 4: '🍲', 5: '🤵', 6: '🐴', 7: '💆', 8: '🚩', 9: '🫖', 10: '🚗',
+  11: '💐', 12: '🧹', 13: '🍽️', 14: '🖼️', 15: '👞', 16: '🧺', 17: '🔪', 18: '✅', 19: '📐', 20: '🕵️',
+  21: '🧑‍🍳', 22: '📋', 23: '🔧', 24: '🍾', 25: '📦', 26: '🗣️', 27: '📕', 28: '🛎️', 29: '✍️', 30: '🗂️',
+  31: '🛏️', 32: '👔', 33: '🧽', 34: '☎️', 35: '🧢', 36: '🍇', 37: '🍳', 38: '🧳', 39: '🧁', 40: '📣',
+  41: '📞', 42: '🌿', 43: '☕', 44: '🥧', 45: '🏊', 46: '🪣', 47: '🛗', 48: '🗝️',
+};
+const STAFF = STAFF_DEFS.map(([id, name, cost, type, text]) => ({ id, name, cost, type, text, emoji: STAFF_EMOJI[id] }));
 const STAFF_TYPE_LABEL = { once: 'One-time', opr: 'Once per round', perm: 'Permanent', end: 'Game end' };
 
 // Politics cards. check(p) receives a player.
@@ -226,6 +240,7 @@ const EMPEROR_TILES = [
 
 const PLAYER_COLORS = ['#e07b39', '#7a5cc4', '#2b9c8f', '#c4407a'];
 const BOT_NAMES = ['Anna', 'Franz', 'Sisi'];
+const PLAYER_AVATARS = ['🎩', '👒', '🧔', '🌹'];
 
 // Room groups = orthogonally connected rooms of the same colour.
 const GROUPS = [];
