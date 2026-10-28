@@ -144,6 +144,7 @@ function hotelHTML(p, pick, tag) {
         label += pk.cost !== undefined ? `, costs ${pk.cost} krone` : ', choose';
       } else if (st === 'occ') {
         if (gid !== undefined) inner = `<span class="who">${guestFace(GUESTS[gid])}</span>`;
+        if (gid !== undefined) cls.push('has-guest');
         else inner = door ? '' : '🧑';
         label += gid !== undefined ? `, ${GUESTS[gid].name}` : ', occupied';
       } else if (st === 'free') {
@@ -155,7 +156,9 @@ function hotelHTML(p, pick, tag) {
       const bg = door ? ` style="background-image:url('${door}')"` : '';
       h += pk
         ? `<button class="${cls.join(' ')}"${bg} data-act="cell" data-r="${r}" data-c="${c}" aria-label="${esc(label)}">${inner}</button>`
-        : `<div class="${cls.join(' ')}"${bg} role="img" aria-label="${esc(label)}">${inner}</div>`;
+        : gid !== undefined && st === 'occ'
+          ? `<button class="${cls.join(' ')}"${bg} data-act="roomguest" data-g="${gid}" data-peek="g${gid}" aria-label="${esc(label)}">${inner}</button>`
+          : `<div class="${cls.join(' ')}"${bg} role="img" aria-label="${esc(label)}">${inner}</div>`;
     }
   }
   return `<div class="hotel-box"><div class="hotel-fit">
@@ -232,7 +235,7 @@ function diceHTML(p, mine, t) {
     const n = S.dice[s - 1];
     const ok = mine && !t.dieTaken && canUseSpace(p, s);
     const cls = !n ? 'none' : ok ? 'ready' : mine ? 'wait' : '';
-    h += `<button class="dtile ${cls}" data-act="space" data-space="${s}" ${ok ? '' : 'disabled'} aria-label="${ACTION_LABEL[s]}, ${n} dice">
+    h += `<button class="dtile a${s} ${cls}" data-act="space" data-space="${s}" ${ok ? '' : 'disabled'} aria-label="${ACTION_LABEL[s]}, ${n} dice">
       <span class="d-die">${dieSVG(s)}</span>
       <span class="d-n">×${n}</span>
       <span class="d-ic" aria-hidden="true">${actionIcon(s)}${s === 6 && !hasStaff(p, 17) ? '<small>💰1</small>' : ''}</span>
@@ -252,11 +255,10 @@ function guestsHTML(p, mine, t) {
   h += S.display.map((g, i) => {
     if (!g) return '<div class="gtile empty">—</div>';
     const cost = guestCost(p, i);
-    return `<button class="gtile ${g.color}${canGuest ? ' ready' : ''}" data-act="guest" data-slot="${i}" aria-label="${esc(g.name)}, ${g.vp} VP, costs ${cost} krone">
-      <span class="pt">${guestFace(g)}<span class="cost">${cost ? `💰${cost}` : 'Free'}</span><span class="vp">⭐${g.vp}</span></span>
-      <span class="nm">${esc(g.name)}</span>
-      ${orderHTML(g, false)}
-      <span class="rw">${g.rewards.map(rewardShort).join(' ') || '—'}</span>
+    return `<button class="gtile ${g.color}${canGuest ? ' ready' : ''}" data-act="guest" data-slot="${i}" data-peek="d${i}" aria-label="${esc(g.name)}, ${COLORS[g.color].guest}, ${g.vp} VP, costs ${cost} krone">
+      <span class="g-band">${COLORS[g.color].guest}</span>
+      <span class="pt">${guestFace(g)}<span class="badge cost">${cost ? `💰${cost}` : 'Free'}</span><span class="badge vp">⭐${g.vp}</span></span>
+      <span class="g-body"><span class="nm">${esc(g.name)}</span>${orderHTML(g, false)}</span>
     </button>`;
   }).join('');
   return h + '</div></section>';
@@ -266,17 +268,18 @@ function cafeHTML(p, mine) {
   const seated = p.cafe.filter(Boolean).length;
   let h = `<section class="blk cafe-blk"><div class="sec-h"><h2>Your café</h2><span>${seated} of 3 seats</span></div><div class="seats">`;
   h += p.cafe.map((g, i) => {
-    if (!g) return '<div class="seat empty"><span class="seat-pt">🪑</span><span class="seat-tx"><b>Empty table</b><small>Invite a guest from the guests arriving</small></span></div>';
+    if (!g) return '<div class="seat empty"><span class="seat-pt">🪑</span><span class="seat-tx"><b>Empty table</b><small>Invite a guest</small></span></div>';
     const done = isComplete(g);
     const rooms = freeRoomsFor(p, g.color).length;
     const act = done
-      ? (mine ? `<button class="btn primary" data-act="checkin" data-idx="${i}" ${rooms ? '' : 'disabled'}>${rooms ? '🔑 Check in' : 'No free room'}</button>` : '<span class="ok">Order complete ✓</span>')
-      : '';
-    return `<div class="seat ${g.color}${done ? ' done' : ''}">
+      ? (mine ? `<button class="btn sm primary" data-act="checkin" data-idx="${i}" ${rooms ? '' : 'disabled'}>${rooms ? '🔑 Check in' : 'No free room'}</button>` : '<span class="ok">Ready ✓</span>')
+      : `<span class="seat-rw">${g.rewards.map(rewardShort).join(' ')}</span>`;
+    return `<div class="seat ${g.color}${done ? ' done' : ''}" data-peek="c${i}">
+      <span class="g-band">${COLORS[g.color].guest}<span>⭐${g.vp}</span></span>
       <button class="seat-pt" data-act="cafe" data-idx="${i}" aria-label="${esc(g.name)} details">${guestFace(g)}</button>
-      <div class="seat-tx"><b>${esc(g.name)}</b><small>${COLORS[g.color].guest} · ⭐${g.vp} · ${roomWord(g.color)}</small></div>
+      <div class="seat-tx"><b>${esc(g.name)}</b><small>${roomWord(g.color)}</small></div>
       <div class="seat-ord">${orderHTML(g, true)}</div>
-      <div class="seat-act">${act}<span class="seat-rw">${g.rewards.map(rewardShort).join(' ')}</span></div>
+      <div class="seat-act">${act}</div>
     </div>`;
   }).join('');
   h += '</div>';
@@ -287,7 +290,7 @@ function cafeHTML(p, mine) {
 }
 
 function tableView(p, mine, t, wide) {
-  if (wide) return `<div class="table-grid">${diceHTML(p, mine, t)}${guestsHTML(p, mine, t)}${cafeHTML(p, mine)}</div>`;
+  if (wide) return `<div class="table-grid">${diceHTML(p, mine, t)}${cafeHTML(p, mine)}${guestsHTML(p, mine, t)}</div>`;
   return `<div class="table-grid">${playersHTML()}${guestsHTML(p, mine, t)}${diceHTML(p, mine, t)}</div>`;
 }
 
@@ -394,6 +397,7 @@ function render() {
   else main = logView();
 
   const last = S.log.length ? youText(S.log[S.log.length - 1].msg) : '';
+  hidePeek();
   app.innerHTML = `<div class="shell ${wide ? 'wide' : 'narrow'}">
     <header class="top">
       <div class="tt"><div class="eyebrow">${S.phase === 'setup' ? 'Setting up' : S.phase === 'over' ? 'Game over' : `Round ${S.round} of 7`}</div>
@@ -645,6 +649,7 @@ document.addEventListener('click', e => {
       if (g) { UI.info = { type: 'guest', g, cafe: true, idx: +d.idx }; render(); }
       break;
     }
+    case 'roomguest': UI.info = { type: 'guest', g: makeGuest(GUESTS[+d.g]) }; render(); break;
     case 'checkin': UI.info = null; sendCmd({ t: 'checkin', idx: +d.idx }); break;
     case 'space': if (myTurn()) sendCmd({ t: 'action', space: +d.space }); break;
     case 'serve': sendCmd({ t: 'serve' }); break;
@@ -654,6 +659,48 @@ document.addEventListener('click', e => {
     case 'opr': sendCmd({ t: 'opr', idx: +d.idx }); break;
   }
 });
+
+// ---------- hover preview ----------
+// With a mouse, resting on any guest (arriving, in the café or in a room) shows a larger card beside it.
+function peekGuest(id) {
+  const p = me();
+  if (!S || !p) return null;
+  if (id[0] === 'd') return { g: S.display[+id.slice(1)], fill: false };
+  if (id[0] === 'c') return { g: p.cafe[+id.slice(1)], fill: true };
+  if (id[0] === 'g') return { g: makeGuest(GUESTS[+id.slice(1)]), fill: false };
+  return null;
+}
+function showPeek(el) {
+  const info = peekGuest(el.dataset.peek);
+  const box = document.getElementById('peek');
+  if (!info || !info.g || !box) return;
+  const g = info.g;
+  box.className = `peek ${g.color}`;
+  box.innerHTML = `<div class="pk-pt">${guestFace(g)}</div>
+    <div class="pk-b"><div class="g-band">${COLORS[g.color].guest} · ⭐${g.vp}</div>
+      <h3>${esc(g.name)}</h3><div class="pk-room">${roomWord(g.color)}</div>
+      ${orderHTML(g, info.fill)}
+      <div class="pk-rw">${g.rewards.map(r => `<div><span>${rewardIcon(r)}</span>${esc(rewardLong(r))}</div>`).join('') || '<div>No extra reward</div>'}</div></div>`;
+  const r = el.getBoundingClientRect();
+  box.hidden = false;
+  const bw = box.offsetWidth, bh = box.offsetHeight;
+  let x = r.right + 12;
+  if (x + bw > innerWidth - 8) x = r.left - bw - 12;
+  if (x < 8) x = Math.min(innerWidth - bw - 8, Math.max(8, r.left));
+  let y = Math.min(innerHeight - bh - 8, Math.max(8, r.top + r.height / 2 - bh / 2));
+  box.style.left = x + 'px';
+  box.style.top = y + 'px';
+}
+function hidePeek() {
+  const box = document.getElementById('peek');
+  if (box) box.hidden = true;
+}
+document.addEventListener('pointerover', e => {
+  if (e.pointerType !== 'mouse') return;
+  const el = e.target.closest('[data-peek]');
+  if (el) showPeek(el); else hidePeek();
+});
+document.addEventListener('pointerdown', hidePeek);
 
 Hooks.render = render;
 Hooks.toast = toast;
