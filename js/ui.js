@@ -1,7 +1,8 @@
 // Mobile UI: renders the whole screen from state on every change and turns taps
 // into engine commands or prompt answers.
-// On phones four views share one header and a fixed bottom dock: Table, Hotel, Staff and Log.
-// On tablets and desktops (760px+) all four are laid out side by side and sheets become dialogs.
+// The game is a fixed, non-scrolling screen: header, one tab's screen, and a dock with the turn status.
+// Phones keep the tabs in the dock; tablets and desktops (760px+, up to 1200px wide) put them in the header
+// and turn sheets into dialogs.
 // Room choices (prepare, check in, turn occupied) are made on the Hotel view itself;
 // every other decision opens a sheet.
 
@@ -10,12 +11,9 @@ const UI = {
   info: null, // non-blocking info sheet: { type, ... }
   started: false,
   tab: 'table',
-  lastView: null,
-  lastCells: null,
+  pages: {},
+  staffTab: 'hired',
 };
-
-const WIDE = window.matchMedia('(min-width: 760px)');
-WIDE.addEventListener('change', () => render());
 
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 const me = () => S && S.players.find(p => !p.isBot);
@@ -32,14 +30,6 @@ const playerFace = q => (artFor('players', q.idx) ? pic(artFor('players', q.idx)
 const actionIcon = s => (s === 1 ? dish('s') + dish('c') : s === 2 ? dish('w') + dish('k') : ACTION_EMOJI[s]);
 
 const ACTION_LABEL = { 1: 'Strudel & cake', 2: 'Wine & coffee', 3: 'Prepare rooms', 4: 'Emperor/krone', 5: 'Hire staff', 6: 'Any action' };
-const VIEW_TITLE = { table: 'Grand Hotel', hotel: 'Your hotel', staff: 'Staff', log: 'Log' };
-const TABS = [
-  ['table', 'Table', '<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor"/>'],
-  ['hotel', 'Hotel', '<path d="M4 20V6l8-3 8 3v14"/><path d="M3 20h18M9 9h2M13 9h2M9 13h2M13 13h2M10 20v-3h4v3"/>'],
-  ['staff', 'Staff', '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4-6 7-6s6 2 7 6"/>'],
-  ['log', 'Log', '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>'],
-];
-
 const PIPS = {
   1: [[12, 12]],
   2: [[7.5, 7.5], [16.5, 16.5]],
@@ -129,12 +119,13 @@ function guestDetailHTML(g, opt = {}) {
     <h3>When checked in</h3><div class="rewards">${rewards}</div>`;
 }
 
+// The hotel scales to fill its box: a roof, four floors of five rooms and a base line.
 function hotelHTML(p, pick, tag) {
   const pickMap = {};
   if (pick) for (const c of pick) pickMap[key(c.r, c.c)] = c;
-  let h = '<div class="hotel">';
+  let h = '';
   for (let r = ROWS - 1; r >= 0; r--) {
-    h += `<div class="rowlab"><b>F${r + 1}</b>${ROW_COST[r] ? `💰${ROW_COST[r]}` : 'Free'}</div>`;
+    h += `<div class="rowlab"><b>F${r + 1}</b><span>${ROW_COST[r] ? `💰${ROW_COST[r]}` : 'Free'}</span></div>`;
     for (let c = 0; c < COLS; c++) {
       const color = LAYOUT[r][c];
       const st = p.rooms[r][c];
@@ -167,8 +158,11 @@ function hotelHTML(p, pick, tag) {
         : `<div class="${cls.join(' ')}"${bg} role="img" aria-label="${esc(label)}">${inner}</div>`;
     }
   }
-  return `<div class="roofwrap" aria-hidden="true"><span></span><svg class="roof" viewBox="0 0 300 26" preserveAspectRatio="none"><path class="r" d="M4 26 L150 2 L296 26 Z"/><circle class="k" cx="150" cy="16" r="4"/></svg></div>
-    ${h}</div><div class="basewrap" aria-hidden="true"><i></i></div>`;
+  return `<div class="hotel-box"><div class="hotel-fit">
+    <div class="roofwrap" aria-hidden="true"><span></span><svg class="roof" viewBox="0 0 300 26" preserveAspectRatio="none"><path class="r" d="M4 26 L150 2 L296 26 Z"/><circle class="k" cx="150" cy="16" r="4"/></svg></div>
+    <div class="hotel">${h}</div>
+    <div class="basewrap" aria-hidden="true"><i></i></div>
+  </div></div>`;
 }
 
 function trackHTML() {
@@ -181,11 +175,11 @@ function trackHTML() {
   return h + '</div>';
 }
 
-// A staff card: portrait on the left, name, kind and effect on the right.
+// A staff card: portrait on top, then name, kind and effect.
 function staffCard(card, opt = {}) {
-  return `<div class="scard2${opt.dim ? ' dim' : ''}">
+  return `<div class="scard2 ${card.type}${opt.dim ? ' dim' : ''}">
     <div class="sc-pic">${staffFace(card)}${opt.cost !== undefined ? `<span class="sc-cost">💰${opt.cost}</span>` : ''}</div>
-    <div class="sc-b"><div class="sc-n">${esc(card.name)}</div><div class="sc-t ${card.type}">${STAFF_TYPE_LABEL[card.type]}</div>
+    <div class="sc-b"><div class="sc-n">${esc(card.name)}</div><div class="sc-t">${STAFF_TYPE_LABEL[card.type]}</div>
       <p>${esc(card.text)}</p>${opt.foot || ''}</div>
   </div>`;
 }
@@ -203,161 +197,221 @@ function statusText() {
   return 'Check in, serve or use staff — then end your turn';
 }
 
-// ---------- views ----------
-function tableView(p, mine, t) {
-  const canGuest = mine && !t.guestTaken && !t.dieTaken && cafeFree(p) >= 0;
-  let h = `<section><div class="players">${playerOrder().map(pi => {
-    const q = S.players[pi];
-    return `<button class="chip${S.current === pi ? ' active' : ''}" data-act="player" data-idx="${pi}">
-      <span class="av pav" style="--ring:${q.color}">${playerFace(q)}</span>
-      <span style="min-width:0"><span class="nm" style="display:block">${esc(q.name)}</span><span class="st" style="display:block">⭐${q.vp} · 💰${q.money}</span></span>
-    </button>`;
-  }).join('')}</div></section>`;
+// ---------- screens ----------
+// Every screen fills the space between the header and the dock exactly; nothing on the page scrolls.
+// Phones get five tabs (Table, Café, Hotel, Staff, Log); tablets and desktops show the café on the
+// Table screen and so have four.
+const WIDE = window.matchMedia('(min-width: 760px)');
+WIDE.addEventListener('change', () => render());
+window.addEventListener('resize', () => { if (UI.started) render(); });
+const staffPage = () => (WIDE.matches ? 6 : window.innerHeight < 720 ? 3 : 4);
 
-  h += `<section><div class="sec-h"><h2>Take a die</h2><span>🎲 ${totalDice()} dice left</span></div><div class="dice">`;
+const TAB_INFO = {
+  table: ['Table', '<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor"/>'],
+  cafe: ['Café', '<path d="M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9z"/><path d="M17 11h1.5a2.5 2.5 0 0 1 0 5H17M8 3v3M12 3v3"/>'],
+  hotel: ['Hotel', '<path d="M4 20V6l8-3 8 3v14"/><path d="M3 20h18M9 9h2M13 9h2M9 13h2M13 13h2M10 20v-3h4v3"/>'],
+  staff: ['Staff', '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4-6 7-6s6 2 7 6"/>'],
+  log: ['Log', '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>'],
+};
+const VIEW_TITLE = { table: 'Grand Hotel', cafe: 'Your café', hotel: 'Your hotel', staff: 'Staff', log: 'Log' };
+const tabsFor = wide => (wide ? ['table', 'hotel', 'staff', 'log'] : ['table', 'cafe', 'hotel', 'staff', 'log']);
+
+function playersHTML() {
+  return `<div class="players">${playerOrder().map(pi => {
+    const q = S.players[pi];
+    return `<button class="chip${S.current === pi ? ' active' : ''}" data-act="player" data-idx="${pi}" aria-label="${esc(q.name)}: ${q.vp} points, ${q.money} krone, Emperor ${q.emp}">
+      <span class="av pav" style="--ring:${q.color}">${playerFace(q)}</span>
+      <span class="ch-tx"><span class="nm">${esc(q.name)}</span><span class="st">⭐${q.vp} · 💰${q.money}</span></span>
+    </button>`;
+  }).join('')}</div>`;
+}
+
+function diceHTML(p, mine, t) {
+  let h = `<section class="blk dice-blk"><div class="sec-h"><h2>Take a die</h2><span>🎲 ${totalDice()} left</span></div><div class="dice">`;
   for (let s = 1; s <= 6; s++) {
     const n = S.dice[s - 1];
     const ok = mine && !t.dieTaken && canUseSpace(p, s);
     const cls = !n ? 'none' : ok ? 'ready' : mine ? 'wait' : '';
     h += `<button class="dtile ${cls}" data-act="space" data-space="${s}" ${ok ? '' : 'disabled'} aria-label="${ACTION_LABEL[s]}, ${n} dice">
-      <span class="r1">${dieSVG(s)}<span class="em" aria-hidden="true">${actionIcon(s)}${s === 6 && !hasStaff(p, 17) ? '<small> 💰1</small>' : ''}</span><span class="n">×${n}</span></span>
-      <span class="r2">${ACTION_LABEL[s]}</span>
+      <span class="d-die">${dieSVG(s)}</span>
+      <span class="d-n">×${n}</span>
+      <span class="d-ic" aria-hidden="true">${actionIcon(s)}${s === 6 && !hasStaff(p, 17) ? '<small>💰1</small>' : ''}</span>
+      <span class="d-lab">${ACTION_LABEL[s]}</span>
     </button>`;
   }
-  h += '</div></section>';
+  return h + '</div></section>';
+}
 
-  h += `<section><div class="sec-h"><h2>Guests arriving</h2><span>${hasStaff(p, 25) ? 'All free (Delivery Boy)' : canGuest ? 'Tap to invite' : 'Tap for details'}</span></div><div class="guests">`;
+function orderHTML(g, fill) {
+  return `<span class="need-row">${g.order.map((c, k) => `<span class="need${fill ? (g.filled[k] ? ' got' : ' miss') : ''}" title="${CUBE_INFO[c].name}${fill && !g.filled[k] ? ' (still needed)' : ''}">${dish(c)}</span>`).join('')}</span>`;
+}
+
+function guestsHTML(p, mine, t) {
+  const canGuest = mine && !t.guestTaken && !t.dieTaken && cafeFree(p) >= 0;
+  let h = `<section class="blk guests-blk"><div class="sec-h"><h2>Guests arriving</h2><span>${hasStaff(p, 25) ? 'All free (Delivery Boy)' : canGuest ? 'Tap to invite' : 'Tap for details'}</span></div><div class="guests">`;
   h += S.display.map((g, i) => {
     if (!g) return '<div class="gtile empty">—</div>';
     const cost = guestCost(p, i);
     return `<button class="gtile ${g.color}${canGuest ? ' ready' : ''}" data-act="guest" data-slot="${i}" aria-label="${esc(g.name)}, ${g.vp} VP, costs ${cost} krone">
-      <span class="pt">${guestFace(g)}</span>
+      <span class="pt">${guestFace(g)}<span class="cost">${cost ? `💰${cost}` : 'Free'}</span><span class="vp">⭐${g.vp}</span></span>
       <span class="nm">${esc(g.name)}</span>
-      <span class="ord" aria-hidden="true">${g.order.map(dish).join('')}</span>
-      <span class="meta"><span>⭐${g.vp}</span><span class="cost">${cost ? `💰${cost}` : 'Free'}</span></span>
+      ${orderHTML(g, false)}
+      <span class="rw">${g.rewards.map(rewardShort).join(' ') || '—'}</span>
     </button>`;
   }).join('');
-  h += '</div></section>';
+  return h + '</div></section>';
+}
 
+function cafeHTML(p, mine) {
   const seated = p.cafe.filter(Boolean).length;
-  h += `<section><div class="sec-h"><h2>Your café ☕</h2><span>${seated} of 3 seats</span></div><div class="list">`;
+  let h = `<section class="blk cafe-blk"><div class="sec-h"><h2>Your café</h2><span>${seated} of 3 seats</span></div><div class="seats">`;
   h += p.cafe.map((g, i) => {
-    if (!g) return '<div class="row empty"><span class="av" aria-hidden="true">🪑</span>Empty seat</div>';
+    if (!g) return '<div class="seat empty"><span class="seat-pt">🪑</span><span class="seat-tx"><b>Empty table</b><small>Invite a guest from the guests arriving</small></span></div>';
     const done = isComplete(g);
-    const right = done && mine
-      ? `<button class="btn sm primary" data-act="checkin" data-idx="${i}">🔑 Check in</button>`
-      : `<span class="dishes">${g.order.map((c, k) => `<span class="dish${g.filled[k] ? '' : ' miss'}" title="${CUBE_INFO[c].name}${g.filled[k] ? '' : ' (needed)'}">${dish(c)}</span>`).join('')}</span>`;
-    return `<div class="row ${g.color}"><button class="main" data-act="cafe" data-idx="${i}">
-      <span class="av gav">${guestFace(g)}</span>
-      <span style="min-width:0"><span class="ttl">${esc(g.name)}</span><span class="sub">${COLORS[g.color].guest} · ⭐${g.vp}${done ? ' · served ✓' : ''}</span></span>
-    </button>${right}</div>`;
+    const rooms = freeRoomsFor(p, g.color).length;
+    const act = done
+      ? (mine ? `<button class="btn primary" data-act="checkin" data-idx="${i}" ${rooms ? '' : 'disabled'}>${rooms ? '🔑 Check in' : 'No free room'}</button>` : '<span class="ok">Order complete ✓</span>')
+      : '';
+    return `<div class="seat ${g.color}${done ? ' done' : ''}">
+      <button class="seat-pt" data-act="cafe" data-idx="${i}" aria-label="${esc(g.name)} details">${guestFace(g)}</button>
+      <div class="seat-tx"><b>${esc(g.name)}</b><small>${COLORS[g.color].guest} · ⭐${g.vp} · ${roomWord(g.color)}</small></div>
+      <div class="seat-ord">${orderHTML(g, true)}</div>
+      <div class="seat-act">${act}<span class="seat-rw">${g.rewards.map(rewardShort).join(' ')}</span></div>
+    </div>`;
   }).join('');
   h += '</div>';
   const serveCost = hasStaff(p, 24) ? 'free' : '💰1';
-  h += `<div class="kitchen"><span class="lab">Kitchen</span>${CUBES.map(c => `<span class="${p.kitchen[c] ? '' : 'zero'}" title="${CUBE_INFO[c].name}">${dish(c)} ${p.kitchen[c]}</span>`).join('')}
-    <button class="btn sm" data-act="serve" ${mine && kitchenUseful(p) ? '' : 'disabled'}>Serve · ${serveCost}</button></div></section>`;
-  return h;
+  h += `<div class="kitchen"><span class="lab">Kitchen</span>${CUBES.map(c => `<span class="k-it${p.kitchen[c] ? '' : ' zero'}" title="${CUBE_INFO[c].name}">${dish(c)}<b>${p.kitchen[c]}</b></span>`).join('')}
+    <button class="btn" data-act="serve" ${mine && kitchenUseful(p) ? '' : 'disabled'}>Serve · ${serveCost}</button></div>`;
+  return h + '</section>';
 }
 
-function hotelView(p, pr) {
+function tableView(p, mine, t, wide) {
+  if (wide) return `<div class="table-grid">${diceHTML(p, mine, t)}${guestsHTML(p, mine, t)}${cafeHTML(p, mine)}</div>`;
+  return `<div class="table-grid">${playersHTML()}${guestsHTML(p, mine, t)}${diceHTML(p, mine, t)}</div>`;
+}
+
+function courtHTML(p, mine) {
+  const nextScore = [3, 5, 7].find(r => r >= S.round);
+  let h = `<section class="blk"><div class="sec-h"><h2>Emperor track</h2><span>${nextScore ? `Scores after round ${nextScore}` : ''}</span></div>${trackHTML()}</section>`;
+  h += `<section class="blk court-list"><div class="sec-h"><h2>Emperor &amp; politics</h2><button class="lnk" data-act="court">Details</button></div>`;
+  h += S.emperor.map((e, k) => `<div class="cline${[3, 5, 7][k] < S.round ? ' past' : ''}"><b>R${[3, 5, 7][k]}</b><span>✨ ${esc(e.bonus)}<br>⚠️ ${esc(e.penalty)}</span></div>`).join('');
+  h += S.politics.map((pc, k) => {
+    const can = p && mine && !pc.claims.includes(p.idx) && pc.def.check(p);
+    const who = pc.claims.map(pi => `<span class="pdot" style="background:${S.players[pi].color}"></span>`).join('');
+    return `<div class="cline"><b>📜</b><span>${esc(pc.def.text)} <i>${pc.def.vps[pc.claims.length] || 0}⭐</i> ${who}</span>${can ? `<button class="btn sm good" data-act="politics" data-idx="${k}">Claim</button>` : ''}</div>`;
+  }).join('');
+  return h + '</section>';
+}
+
+function hotelView(p, pr, mine, wide) {
   const pick = pr && pr.kind === 'cells';
-  let h = `<section><div class="stats">
+  const stats = `<div class="stats">
     <div class="stat"><div class="k">⭐ Points</div><div class="v">${p.vp}</div></div>
     <div class="stat"><div class="k">💰 Krone</div><div class="v">${p.money}</div></div>
     <div class="stat"><div class="k">👑 Emperor</div><div class="v">${p.emp}<small> / ${EMP_MAX}</small></div></div>
-  </div></section>`;
+  </div>`;
+  let banner = '';
   if (pick) {
     const g = pr.meta && pr.meta.guest;
-    h += `<div class="banner" role="status">
+    banner = `<div class="banner" role="status">
       <span class="av${g ? ' gav ' + g.color : ''}">${g ? guestFace(g) : pr.tag === 'removeRoom' ? '✖️' : pr.tag === 'turn' ? '🔑' : '🛏️'}</span>
       <span class="tx"><b>${esc(pr.title)}</b>${pr.text ? `<small>${esc(pr.text)}</small>` : ''}</span>
       ${pr.allowSkip ? `<button class="btn sm" data-act="skip">${esc(pr.skipLabel || 'Skip')}</button>` : ''}
     </div>`;
   }
-  h += `<section>${hotelHTML(p, pick ? pr.cells : null, pick ? pr.tag : null)}
-    <div class="legend"><span>🧑 Occupied</span><span>🛏️ Prepared</span><span><i></i>Empty</span></div></section>`;
+  const legend = '<div class="legend"><span>🧑 Occupied</span><span>🛏️ Prepared</span><span><i></i>Empty</span></div>';
+  if (wide) {
+    return `<div class="hotel-grid"><div class="hotel-main">${banner}${hotelHTML(p, pick ? pr.cells : null, pick ? pr.tag : null)}${legend}</div>
+      <div class="hotel-side">${stats}${courtHTML(p, mine)}</div></div>`;
+  }
   const nextScore = [3, 5, 7].find(r => r >= S.round);
-  h += `<section><div class="sec-h"><h2>Emperor track</h2><span>${nextScore ? `Scores after round ${nextScore}` : ''}</span></div>${trackHTML()}
-    <div class="court"><button class="btn" data-act="court">👑 Emperor &amp; politics</button></div></section>`;
-  return h;
+  return `<div class="hotel-grid">${stats}${banner}${hotelHTML(p, pick ? pr.cells : null, pick ? pr.tag : null)}${legend}
+    <section class="blk"><div class="sec-h"><h2>Emperor${nextScore ? ` · scores after R${nextScore}` : ''}</h2><button class="lnk" data-act="court">Emperor &amp; politics</button></div>${trackHTML()}</section></div>`;
 }
 
-function staffView(p, mine) {
-  let h = '<section><div class="sec-h"><h2>Hired</h2><span>' + p.staff.length + '</span></div>';
-  h += p.staff.length ? '<div class="staffgrid">' + p.staff.map((e, k) => {
-    const foot = e.card.type === 'opr'
-      ? `<button class="btn sm" data-act="opr" data-idx="${k}" ${mine && !e.tapped ? '' : 'disabled'}>${e.tapped ? 'Used this round' : 'Use now'}</button>` : '';
-    return staffCard(e.card, { foot, dim: e.tapped });
-  }).join('') + '</div>' : '<p class="sub" style="color:var(--muted)">Nobody yet. Take a 5 to hire staff 🤵</p>';
-  h += '</section><section><div class="sec-h"><h2>In your hand</h2><span>' + p.hand.length + '</span></div>';
-  h += p.hand.length ? '<div class="staffgrid">' + p.hand.map(c => staffCard(c, { cost: c.cost })).join('') + '</div>'
-    : '<p class="sub" style="color:var(--muted)">No cards in hand.</p>';
-  return h + '</section>';
+function pager(id, total) {
+  const size = staffPage();
+  const pages = Math.max(1, Math.ceil(total / size));
+  const at = Math.min(UI.pages[id] || 0, pages - 1);
+  UI.pages[id] = at;
+  const nav = pages > 1 ? `<span class="pager"><button data-act="page" data-id="${id}" data-d="-1" ${at ? '' : 'disabled'} aria-label="Previous page">‹</button>${at + 1}/${pages}<button data-act="page" data-id="${id}" data-d="1" ${at < pages - 1 ? '' : 'disabled'} aria-label="Next page">›</button></span>` : '';
+  return { from: at * size, size, nav };
 }
 
-function logView(limit) {
-  const lines = S.log.slice().reverse();
-  return `<section><div class="list logs">${(limit ? lines.slice(0, limit) : lines).map(l => `<div class="lg">${l.pi !== undefined ? `<span class="pdot" style="background:${S.players[l.pi].color}"></span>` : '<span style="width:8px"></span>'}<span>${esc(youText(l.msg))}</span></div>`).join('') || '<div class="lg">Nothing yet.</div>'}</div></section>`;
+function staffView(p, mine, wide) {
+  const hired = pager('hired', p.staff.length);
+  const hand = pager('hand', p.hand.length);
+  const hiredHTML = `<section class="blk staff-blk"><div class="sec-h"><h2>Hired · ${p.staff.length}</h2>${hired.nav}</div>${p.staff.length
+    ? '<div class="staffgrid">' + p.staff.slice(hired.from, hired.from + hired.size).map((e, k) => {
+      const i = hired.from + k;
+      const foot = e.card.type === 'opr'
+        ? `<button class="btn sm" data-act="opr" data-idx="${i}" ${mine && !e.tapped ? '' : 'disabled'}>${e.tapped ? 'Used this round' : 'Use now'}</button>` : '';
+      return staffCard(e.card, { foot, dim: e.tapped });
+    }).join('') + '</div>'
+    : '<p class="empty-note">Nobody hired yet. Take a 5 to hire staff 🤵</p>'}</section>`;
+  const handHTML = `<section class="blk staff-blk"><div class="sec-h"><h2>In your hand · ${p.hand.length}</h2>${hand.nav}</div>${p.hand.length
+    ? '<div class="staffgrid">' + p.hand.slice(hand.from, hand.from + hand.size).map(c => staffCard(c, { cost: c.cost })).join('') + '</div>'
+    : '<p class="empty-note">No cards in hand.</p>'}</section>`;
+  if (wide) return `<div class="staff-grid">${hiredHTML}${handHTML}</div>`;
+  const sub = UI.staffTab;
+  return `<div class="staff-grid"><div class="seg sub" role="tablist">
+      <button role="tab" aria-selected="${sub === 'hired'}" data-act="stab" data-t="hired">Hired · ${p.staff.length}</button>
+      <button role="tab" aria-selected="${sub === 'hand'}" data-act="stab" data-t="hand">In hand · ${p.hand.length}</button></div>
+    ${sub === 'hired' ? hiredHTML : handHTML}</div>`;
 }
 
-// Tablet and desktop: every view at once.
-function deskHTML(p, mine, t, pr) {
-  return `<div class="desk">
-    <div class="col col-table"><section class="colh"><h2>At the table</h2></section>${tableView(p, mine, t)}</div>
-    <div class="col col-hotel"><section class="colh"><h2>Your hotel</h2></section>${hotelView(p, pr)}</div>
-    <div class="col col-side">
-      <div class="panel"><section class="colh"><h2>Staff</h2></section>${staffView(p, mine)}</div>
-      <div class="panel"><section class="colh"><h2>Log</h2></section>${logView(15)}</div>
-    </div>
-  </div>`;
+function logView() {
+  return `<section class="blk log-blk"><div class="list logs">${S.log.slice(-60).reverse().map(l => `<div class="lg">${l.pi !== undefined ? `<span class="pdot" style="background:${S.players[l.pi].color}"></span>` : '<span class="pdot none"></span>'}<span>${esc(youText(l.msg))}</span></div>`).join('') || '<div class="lg">Nothing yet.</div>'}</div></section>`;
 }
 
 function render() {
   const app = document.getElementById('app');
-  if (!UI.started || !S) { app.innerHTML = menuHTML() + sheetsHTML(); calmSheets(); return; }
+  if (!UI.started || !S) { document.body.classList.remove('ingame'); app.innerHTML = menuHTML() + sheetsHTML(); calmSheets(); return; }
+  document.body.classList.add('ingame');
   const p = me();
   const t = S.turn;
   const mine = myTurn();
   const pr = S.prompt && !S.players[S.prompt.pi].isBot ? S.prompt : null;
   const wide = WIDE.matches;
+  const tabs = tabsFor(wide);
+  if (!tabs.includes(UI.tab)) UI.tab = 'table';
   const cells = pr && pr.kind === 'cells';
-  const view = wide ? 'table' : cells ? 'hotel' : UI.tab;
+  const view = cells ? 'hotel' : UI.tab;
   const claimable = mine ? claimablePolitics(p).length : 0;
   const oprReady = mine && p.staff.some(e => e.card.type === 'opr' && !e.tapped);
+  const doneGuest = mine && p.cafe.some(g => g && isComplete(g));
+  const dot = id => (id === 'staff' && oprReady) || (id === 'cafe' && doneGuest) ? '<span class="dot"></span>' : '';
+  const nav = cls => `<nav class="${cls}">${tabs.map(id => `<button data-act="tab" data-tab="${id}" ${view === id ? 'aria-current="page"' : ''}>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TAB_INFO[id][1]}</svg>
+      <span>${TAB_INFO[id][0]}</span>${dot(id)}</button>`).join('')}</nav>`;
 
-  let h = `<header class="top">
-    <div class="tt"><div class="eyebrow">${S.phase === 'setup' ? 'Setting up' : S.phase === 'over' ? 'Game over' : `Round ${S.round} of 7`}</div>
-    <h1 class="title">${VIEW_TITLE[view]}</h1></div>
-    <button class="roundbtn" data-act="court" aria-label="Emperor and politics">👑${claimable ? '<span class="dot"></span>' : ''}</button>
-    <button class="roundbtn" data-act="help" aria-label="How to play" style="font:600 18px/1 var(--serif)">?</button>
-  </header>`;
-
-  if (wide) h += deskHTML(p, mine, t, pr);
-  else if (view === 'table') h += tableView(p, mine, t);
-  else if (view === 'hotel') h += hotelView(p, pr);
-  else if (view === 'staff') h += staffView(p, mine);
-  else h += logView();
+  let main;
+  if (view === 'table') main = tableView(p, mine, t, wide);
+  else if (view === 'cafe') main = cafeHTML(p, mine);
+  else if (view === 'hotel') main = hotelView(p, pr, mine, wide);
+  else if (view === 'staff') main = staffView(p, mine, wide);
+  else main = logView();
 
   const last = S.log.length ? youText(S.log[S.log.length - 1].msg) : '';
-  h += `<div class="dock"><div class="dock-in">
-    <div class="status"><div class="tx" aria-live="polite"><div class="s1">${esc(statusText())}</div><div class="s2">${esc(last)}</div></div>
-      <button class="btn sm" data-act="pass" ${mine && !t.dieTaken && !t.extra ? '' : 'disabled'}>Pass</button>
-      <button class="btn sm primary" data-act="end" ${mine && (t.dieTaken || t.extra) ? '' : 'disabled'}>End turn</button>
+  app.innerHTML = `<div class="shell ${wide ? 'wide' : 'narrow'}">
+    <header class="top">
+      <div class="tt"><div class="eyebrow">${S.phase === 'setup' ? 'Setting up' : S.phase === 'over' ? 'Game over' : `Round ${S.round} of 7`}</div>
+      <h1 class="title">${VIEW_TITLE[view]}</h1></div>
+      ${wide ? nav('tabs') + playersHTML() : ''}
+      <button class="roundbtn" data-act="court" aria-label="Emperor and politics">👑${claimable ? '<span class="dot"></span>' : ''}</button>
+      <button class="roundbtn" data-act="help" aria-label="How to play" style="font:600 18px/1 var(--serif)">?</button>
+    </header>
+    <main class="screen v-${view}">${main}</main>
+    <div class="dock">
+      <div class="status"><div class="tx" aria-live="polite"><div class="s1">${esc(statusText())}</div><div class="s2">${esc(last)}</div></div>
+        <button class="btn" data-act="pass" ${mine && !t.dieTaken && !t.extra ? '' : 'disabled'}>Pass</button>
+        <button class="btn primary" data-act="end" ${mine && (t.dieTaken || t.extra) ? '' : 'disabled'}>End turn</button>
+      </div>
+      ${wide ? '' : nav('nav')}
     </div>
-    ${wide ? '' : `<nav class="nav">${TABS.map(([id, label, icon]) => `<button data-act="tab" data-tab="${id}" ${view === id ? 'aria-current="page"' : ''}>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>
-      ${label}${id === 'staff' && oprReady ? '<span class="dot"></span>' : ''}</button>`).join('')}</nav>`}
-  </div></div>`;
-
-  app.innerHTML = h + sheetsHTML();
+  </div>` + sheetsHTML();
   calmSheets();
-  if (!wide && view !== UI.lastView) { UI.lastView = view; window.scrollTo(0, 0); }
-  // On wide screens the hotel may be below the fold: bring it into view when a room must be chosen.
-  if (wide && cells && UI.lastCells !== pr) {
-    const el = document.querySelector('.col-hotel .banner');
-    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }
-  UI.lastCells = cells ? pr : null;
 }
 
 function menuHTML() {
@@ -559,15 +613,14 @@ document.addEventListener('click', e => {
   switch (act) {
     case 'bots': UI.bots = +d.n; render(); break;
     case 'start': startGame(); break;
-    case 'again': UI.started = false; UI.info = null; UI.lastView = null; S = null; render(); break;
+    case 'again': UI.started = false; UI.info = null; UI.pages = {}; S = null; render(); break;
     case 'help': UI.info = { type: 'help' }; render(); break;
     case 'court': UI.info = { type: 'court' }; render(); break;
     case 'tab': UI.tab = d.tab; render(); break;
+    case 'stab': UI.staffTab = d.t; render(); break;
+    case 'page': UI.pages[d.id] = (UI.pages[d.id] || 0) + +d.d; render(); break;
     case 'player':
-      if (+d.idx === p.idx) {
-        if (WIDE.matches) document.querySelector('.col-hotel').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        UI.tab = 'hotel';
-      }
+      if (+d.idx === p.idx) UI.tab = 'hotel';
       else UI.info = { type: 'player', idx: +d.idx };
       render();
       break;
