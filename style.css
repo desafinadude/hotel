@@ -580,3 +580,11 @@ table.res tr.win td { font-weight: 700; }
 .sheet .sc-pic { height: 100%; aspect-ratio: 1; flex: none; border-radius: 10px; min-height: 0; font-size: 36px; }
 .sheet .sc-b { padding: 0; }
 .sheet .sc-b p { -webkit-line-clamp: 2; }
+
+/* ---------- museum theme: oxblood accent; two theme switches on the start screen ---------- */
+html.theme-museum { --accent: #6b1f2b; --accent-ink: #f6efe2; --accent-soft: #e2c3b8; }
+@media (prefers-color-scheme: dark) { html.theme-museum:not([data-theme="light"]) { --accent: #e2c27a; --accent-ink: #14161d; --accent-soft: #5b513a; } }
+html.theme-museum[data-theme="dark"] { --accent: #e2c27a; --accent-ink: #14161d; --accent-soft: #5b513a; }
+.theme-seg { grid-template-columns: 1fr 1fr; margin-bottom: 4px; }
+/* museum materials are small paintings with their own backgrounds, so they are not blended into the card */
+html.theme-museum .ic { mix-blend-mode: normal; border-radius: 6px; }

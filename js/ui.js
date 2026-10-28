@@ -20,7 +20,7 @@ const me = () => S && S.players.find(p => !p.isBot);
 const myTurn = () => S && S.turn && !S.players[S.turn.pi].isBot && S.awaitCmd;
 
 // Pictures come from js/art.js (cut from the art contact sheets); anything without one falls back to emoji.
-const ARTS = typeof ART !== 'undefined' ? ART : {};
+const ARTS = (THEME.id === 'museum' ? ART_MUSEUM : ART) || {};
 const pic = (src, alt, cls) => `<img class="${cls}" src="${src}" alt="${esc(alt)}" decoding="async" draggable="false">`;
 const artFor = (group, k) => ARTS[group] && ARTS[group][k];
 const dish = c => (artFor('items', c) ? pic(artFor('items', c), CUBE_INFO[c].name, 'ic') : CUBE_INFO[c].emoji);
@@ -95,7 +95,8 @@ function youText(msg) {
   return msg.replace(/\bYou's\b/g, 'Your').replace(/\bYou (re-)?([a-z]+)\b/g, (m, re, v) => `You ${re || ''}${YOU_VERBS[v] || v}`);
 }
 
-const roomWord = color => (color === 'G' ? 'Any room' : `${COLORS[color].name} room`);
+// Themes other than the hotel name galleries after their department rather than a colour.
+const roomWord = color => (color === 'G' ? 'Any room' : `${THEME.types ? THEME.types[color] : COLORS[color].name} room`);
 
 // ---------- building blocks ----------
 function guestDetailHTML(g, opt = {}) {
@@ -370,7 +371,7 @@ function logView() {
 
 function render() {
   const app = document.getElementById('app');
-  if (!UI.started || !S) { document.body.classList.remove('ingame'); app.innerHTML = menuHTML() + sheetsHTML(); calmSheets(); return; }
+  if (!UI.started || !S) { document.body.classList.remove('ingame'); app.innerHTML = menuHTML() + sheetsHTML(); themeDom(app); calmSheets(); return; }
   document.body.classList.add('ingame');
   const p = me();
   const t = S.turn;
@@ -415,6 +416,7 @@ function render() {
       ${wide ? '' : nav('nav')}
     </div>
   </div>` + sheetsHTML();
+  themeDom(app);
   calmSheets();
 }
 
@@ -426,6 +428,9 @@ function menuHTML() {
     <p class="tag">Serve your guests, fill your rooms,<br>keep the Emperor happy.</p>
     <div class="cast" aria-hidden="true">${PLAYER_AVATARS.map((a, i) => `<span class="av pav" style="--ring:${PLAYER_COLORS[i]}">${playerFace({ idx: i, name: '', avatar: a })}</span>`).join('')}</div>
     <div class="deco" aria-hidden="true">${dish('s')} ${dish('c')} ${dieSVG(5, 40).replace('<svg', '<svg style="transform:rotate(-12deg)"')} ${dieSVG(3, 40).replace('<svg', '<svg style="transform:rotate(14deg)"')} ${dish('w')} ${dish('k')}</div>
+    <div class="seg-wrap"><div class="eyebrow">Theme</div>
+      <div class="seg theme-seg" role="radiogroup" aria-label="Theme" data-keep>${[['hotel', '🏨 Hotel'], ['museum', '🏛️ Museum']].map(([id, label]) => `<button role="radio" aria-checked="${THEME.id === id}" data-act="theme" data-t="${id}">${label}</button>`).join('')}</div>
+    </div>
     <div class="seg-wrap"><div class="eyebrow">Opponents 🤖</div>
       <div class="seg" role="radiogroup" aria-label="Opponents">${[1, 2, 3].map(n => `<button role="radio" aria-checked="${UI.bots === n}" data-act="bots" data-n="${n}">${n}</button>`).join('')}</div>
     </div>
@@ -590,7 +595,7 @@ function helpHTML() {
 let toastTimer = null;
 function toast(msg) {
   const el = document.getElementById('toast');
-  el.textContent = msg;
+  el.textContent = themeText(msg);
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
@@ -616,6 +621,7 @@ document.addEventListener('click', e => {
   const p = S && me();
   switch (act) {
     case 'bots': UI.bots = +d.n; render(); break;
+    case 'theme': if (d.t !== THEME.id) chooseTheme(d.t); break;
     case 'start': startGame(); break;
     case 'again': UI.started = false; UI.info = null; UI.pages = {}; S = null; render(); break;
     case 'help': UI.info = { type: 'help' }; render(); break;
@@ -681,6 +687,7 @@ function showPeek(el) {
       <h3>${esc(g.name)}</h3><div class="pk-room">${roomWord(g.color)}</div>
       ${orderHTML(g, info.fill)}
       <div class="pk-rw">${g.rewards.map(r => `<div><span>${rewardIcon(r)}</span>${esc(rewardLong(r))}</div>`).join('') || '<div>No extra reward</div>'}</div></div>`;
+  themeDom(box);
   const r = el.getBoundingClientRect();
   box.hidden = false;
   const bw = box.offsetWidth, bh = box.offsetHeight;

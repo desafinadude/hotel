@@ -37,7 +37,7 @@ jobs:
       - name: Collect site files
         run: |
           mkdir _site
-          cp -r index.html style.css manifest.webmanifest js img icons _site/
+          cp -r index.html style.css manifest.webmanifest js img img-museum icons _site/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
