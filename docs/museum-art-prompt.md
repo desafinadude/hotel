@@ -9,8 +9,10 @@ The grids, order and file names match the hotel set, so the existing slicer cuts
 ## Style brief (paste this first)
 
 > You are illustrating **The Curator**, a cosy strategy game set in a grand Victorian museum in London around 1890.
-> The look is a **hand-drawn editorial illustration in the style of a Victorian museum catalogue**: fine ink
-> outlines, soft watercolour washes, gentle paper grain, no photorealism, no 3D render look.
+> The look is **playful Art Nouveau with a cartoony touch**: the pretty flowing curves,
+> elegance and warm colours of Nouveau poster art (but no frames or borders), drawn like a modern storybook. Clean, confident ink outlines,
+> flat colour with soft watercolour shading, warm paper grain. Shapes are chunky and readable with slightly
+> exaggerated proportions; nothing is photorealistic, 3D-rendered, grotesque or gritty.
 >
 > **Palette**: aged card stock `#EEE2C7`, ink navy `#1E2A44`, oxblood `#7A1F2B`, brass `#C99A2E`, and four
 > department colours used as accents: terracotta red `#B3473C`, sand gold `#C99A2E`, royal blue `#3D6AA3`,
@@ -18,8 +20,11 @@ The grids, order and file names match the hotel set, so the existing slicer cuts
 >
 > **Objects**: every artefact is an invented museum piece (never a copy of a real, famous object), shown alone on a
 > small plinth or stand, three-quarter view, softly lit from the upper left like a museum photograph.
-> **People**: friendly, slightly whimsical Victorian museum staff, head-and-shoulders, three-quarter view,
-> holding the tool of their trade; every person is invented.
+> **People**: friendly, playful Victorian museum staff drawn as gentle caricatures, with expressive faces, big
+> readable features and a hint of humour (a proud moustache, a mischievous grin), head-and-shoulders,
+> three-quarter view, holding the tool of their trade; every person is invented.
+> **Objects** also get a little personality: slightly chunkier proportions and a cheerful gleam, while still
+> looking like a real museum piece.
 >
 > **Contact sheets**: always deliver a set as ONE image with a strict grid of equal square cells separated by thin,
 > even ivory gutters, filled left to right, top to bottom, in the order given. Each cell is a complete separate
