@@ -20,7 +20,16 @@ WIDE.addEventListener('change', () => render());
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 const me = () => S && S.players.find(p => !p.isBot);
 const myTurn = () => S && S.turn && !S.players[S.turn.pi].isBot && S.awaitCmd;
-const dish = c => CUBE_INFO[c].emoji;
+
+// Pictures come from js/art.js (cut from the art contact sheets); anything without one falls back to emoji.
+const ARTS = typeof ART !== 'undefined' ? ART : {};
+const pic = (src, alt, cls) => `<img class="${cls}" src="${src}" alt="${esc(alt)}" decoding="async" draggable="false">`;
+const artFor = (group, k) => ARTS[group] && ARTS[group][k];
+const dish = c => (artFor('items', c) ? pic(artFor('items', c), CUBE_INFO[c].name, 'ic') : CUBE_INFO[c].emoji);
+const staffFace = card => (artFor('staff', card.id) ? pic(artFor('staff', card.id), '', 'face') : `<span class="face emo" aria-hidden="true">${card.emoji}</span>`);
+const guestFace = g => (artFor('guests', g.no) ? pic(artFor('guests', g.no), '', 'face') : `<span class="face emo" aria-hidden="true">${g.emoji}</span>`);
+const playerFace = q => (artFor('players', q.idx) ? pic(artFor('players', q.idx), '', 'face') : `<span class="face emo" aria-hidden="true">${q.avatar}</span>`);
+const actionIcon = s => (s === 1 ? dish('s') + dish('c') : s === 2 ? dish('w') + dish('k') : ACTION_EMOJI[s]);
 
 const ACTION_LABEL = { 1: 'Strudel & cake', 2: 'Wine & coffee', 3: 'Prepare rooms', 4: 'Emperor/krone', 5: 'Hire staff', 6: 'Any action' };
 const VIEW_TITLE = { table: 'Grand Hotel', hotel: 'Your hotel', staff: 'Staff', log: 'Log' };
@@ -108,7 +117,7 @@ function guestDetailHTML(g, opt = {}) {
     ? g.rewards.map(r => `<div class="rw"><span class="av" aria-hidden="true">${rewardIcon(r)}</span>${esc(rewardLong(r))}</div>`).join('')
     : '<div class="rw sub">No extra reward</div>';
   return `<div class="gd-head ${g.color}">
-      <span class="gd-pt" aria-hidden="true">${g.emoji}</span>
+      <span class="gd-pt">${guestFace(g)}</span>
       <div class="tt"><div class="eyebrow"><i></i>${COLORS[g.color].guest} · No. ${g.no}</div><h2>${esc(g.name)}</h2></div>
     </div>
     <div class="facts ${g.color}">
@@ -130,6 +139,8 @@ function hotelHTML(p, pick, tag) {
       const color = LAYOUT[r][c];
       const st = p.rooms[r][c];
       const cls = ['room', color, st || ''];
+      const door = st && artFor('rooms', `${color}-${st}`);
+      if (door) cls.push('art');
       const pk = pickMap[key(r, c)];
       if (pk) cls.push('pick');
       const gid = p.guestIn ? p.guestIn[key(r, c)] : undefined;
@@ -141,17 +152,19 @@ function hotelHTML(p, pick, tag) {
           : `<span class="pc"><span>${tag === 'removeRoom' ? '✖️' : '🔑'}</span>Here</span>`;
         label += pk.cost !== undefined ? `, costs ${pk.cost} krone` : ', choose';
       } else if (st === 'occ') {
-        inner = gid !== undefined ? GUESTS[gid].emoji : '🧑';
+        if (gid !== undefined) inner = `<span class="who">${guestFace(GUESTS[gid])}</span>`;
+        else inner = door ? '' : '🧑';
         label += gid !== undefined ? `, ${GUESTS[gid].name}` : ', occupied';
       } else if (st === 'free') {
-        inner = '🛏️';
+        inner = door ? '' : '🛏️';
         label += ', prepared';
       } else if (DOOR_VP[key(r, c)]) {
         inner = `<span class="door">+${DOOR_VP[key(r, c)]}⭐</span>`;
       }
+      const bg = door ? ` style="background-image:url('${door}')"` : '';
       h += pk
-        ? `<button class="${cls.join(' ')}" data-act="cell" data-r="${r}" data-c="${c}" aria-label="${esc(label)}">${inner}</button>`
-        : `<div class="${cls.join(' ')}" role="img" aria-label="${esc(label)}">${inner}</div>`;
+        ? `<button class="${cls.join(' ')}"${bg} data-act="cell" data-r="${r}" data-c="${c}" aria-label="${esc(label)}">${inner}</button>`
+        : `<div class="${cls.join(' ')}"${bg} role="img" aria-label="${esc(label)}">${inner}</div>`;
     }
   }
   return `<div class="roofwrap" aria-hidden="true"><span></span><svg class="roof" viewBox="0 0 300 26" preserveAspectRatio="none"><path class="r" d="M4 26 L150 2 L296 26 Z"/><circle class="k" cx="150" cy="16" r="4"/></svg></div>
@@ -168,9 +181,13 @@ function trackHTML() {
   return h + '</div>';
 }
 
-function staffRow(card, right = '', dim = false) {
-  return `<div class="row${dim ? ' dim' : ''}"><span class="av" aria-hidden="true" style="width:36px;height:36px;font-size:19px">${card.emoji}</span>
-    <div style="flex:1;min-width:0"><span class="ttl">${esc(card.name)}</span><span class="sub">${STAFF_TYPE_LABEL[card.type]} · ${esc(card.text)}</span></div>${right}</div>`;
+// A staff card: portrait on the left, name, kind and effect on the right.
+function staffCard(card, opt = {}) {
+  return `<div class="scard2${opt.dim ? ' dim' : ''}">
+    <div class="sc-pic">${staffFace(card)}${opt.cost !== undefined ? `<span class="sc-cost">💰${opt.cost}</span>` : ''}</div>
+    <div class="sc-b"><div class="sc-n">${esc(card.name)}</div><div class="sc-t ${card.type}">${STAFF_TYPE_LABEL[card.type]}</div>
+      <p>${esc(card.text)}</p>${opt.foot || ''}</div>
+  </div>`;
 }
 
 function statusText() {
@@ -192,7 +209,7 @@ function tableView(p, mine, t) {
   let h = `<section><div class="players">${playerOrder().map(pi => {
     const q = S.players[pi];
     return `<button class="chip${S.current === pi ? ' active' : ''}" data-act="player" data-idx="${pi}">
-      <span class="av" aria-hidden="true" style="box-shadow: inset 0 0 0 2px ${q.color}">${q.avatar}</span>
+      <span class="av pav" style="--ring:${q.color}">${playerFace(q)}</span>
       <span style="min-width:0"><span class="nm" style="display:block">${esc(q.name)}</span><span class="st" style="display:block">⭐${q.vp} · 💰${q.money}</span></span>
     </button>`;
   }).join('')}</div></section>`;
@@ -203,7 +220,7 @@ function tableView(p, mine, t) {
     const ok = mine && !t.dieTaken && canUseSpace(p, s);
     const cls = !n ? 'none' : ok ? 'ready' : mine ? 'wait' : '';
     h += `<button class="dtile ${cls}" data-act="space" data-space="${s}" ${ok ? '' : 'disabled'} aria-label="${ACTION_LABEL[s]}, ${n} dice">
-      <span class="r1">${dieSVG(s)}<span class="em" aria-hidden="true">${ACTION_EMOJI[s]}${s === 6 && !hasStaff(p, 17) ? '<small> 💰1</small>' : ''}</span><span class="n">×${n}</span></span>
+      <span class="r1">${dieSVG(s)}<span class="em" aria-hidden="true">${actionIcon(s)}${s === 6 && !hasStaff(p, 17) ? '<small> 💰1</small>' : ''}</span><span class="n">×${n}</span></span>
       <span class="r2">${ACTION_LABEL[s]}</span>
     </button>`;
   }
@@ -214,7 +231,7 @@ function tableView(p, mine, t) {
     if (!g) return '<div class="gtile empty">—</div>';
     const cost = guestCost(p, i);
     return `<button class="gtile ${g.color}${canGuest ? ' ready' : ''}" data-act="guest" data-slot="${i}" aria-label="${esc(g.name)}, ${g.vp} VP, costs ${cost} krone">
-      <span class="pt" aria-hidden="true">${g.emoji}</span>
+      <span class="pt">${guestFace(g)}</span>
       <span class="nm">${esc(g.name)}</span>
       <span class="ord" aria-hidden="true">${g.order.map(dish).join('')}</span>
       <span class="meta"><span>⭐${g.vp}</span><span class="cost">${cost ? `💰${cost}` : 'Free'}</span></span>
@@ -231,7 +248,7 @@ function tableView(p, mine, t) {
       ? `<button class="btn sm primary" data-act="checkin" data-idx="${i}">🔑 Check in</button>`
       : `<span class="dishes">${g.order.map((c, k) => `<span class="dish${g.filled[k] ? '' : ' miss'}" title="${CUBE_INFO[c].name}${g.filled[k] ? '' : ' (needed)'}">${dish(c)}</span>`).join('')}</span>`;
     return `<div class="row ${g.color}"><button class="main" data-act="cafe" data-idx="${i}">
-      <span class="av gav" aria-hidden="true">${g.emoji}</span>
+      <span class="av gav">${guestFace(g)}</span>
       <span style="min-width:0"><span class="ttl">${esc(g.name)}</span><span class="sub">${COLORS[g.color].guest} · ⭐${g.vp}${done ? ' · served ✓' : ''}</span></span>
     </button>${right}</div>`;
   }).join('');
@@ -252,7 +269,7 @@ function hotelView(p, pr) {
   if (pick) {
     const g = pr.meta && pr.meta.guest;
     h += `<div class="banner" role="status">
-      <span class="av" aria-hidden="true">${g ? g.emoji : pr.tag === 'removeRoom' ? '✖️' : pr.tag === 'turn' ? '🔑' : '🛏️'}</span>
+      <span class="av${g ? ' gav ' + g.color : ''}">${g ? guestFace(g) : pr.tag === 'removeRoom' ? '✖️' : pr.tag === 'turn' ? '🔑' : '🛏️'}</span>
       <span class="tx"><b>${esc(pr.title)}</b>${pr.text ? `<small>${esc(pr.text)}</small>` : ''}</span>
       ${pr.allowSkip ? `<button class="btn sm" data-act="skip">${esc(pr.skipLabel || 'Skip')}</button>` : ''}
     </div>`;
@@ -267,13 +284,13 @@ function hotelView(p, pr) {
 
 function staffView(p, mine) {
   let h = '<section><div class="sec-h"><h2>Hired</h2><span>' + p.staff.length + '</span></div>';
-  h += p.staff.length ? '<div class="list">' + p.staff.map((e, k) => {
-    const use = e.card.type === 'opr'
-      ? `<button class="btn sm" data-act="opr" data-idx="${k}" ${mine && !e.tapped ? '' : 'disabled'}>${e.tapped ? 'Used' : 'Use'}</button>` : '';
-    return staffRow(e.card, use, e.tapped);
+  h += p.staff.length ? '<div class="staffgrid">' + p.staff.map((e, k) => {
+    const foot = e.card.type === 'opr'
+      ? `<button class="btn sm" data-act="opr" data-idx="${k}" ${mine && !e.tapped ? '' : 'disabled'}>${e.tapped ? 'Used this round' : 'Use now'}</button>` : '';
+    return staffCard(e.card, { foot, dim: e.tapped });
   }).join('') + '</div>' : '<p class="sub" style="color:var(--muted)">Nobody yet. Take a 5 to hire staff 🤵</p>';
   h += '</section><section><div class="sec-h"><h2>In your hand</h2><span>' + p.hand.length + '</span></div>';
-  h += p.hand.length ? '<div class="list">' + p.hand.map(c => staffRow(c, `<span style="font-weight:600;white-space:nowrap">💰${c.cost}</span>`)).join('') + '</div>'
+  h += p.hand.length ? '<div class="staffgrid">' + p.hand.map(c => staffCard(c, { cost: c.cost })).join('') + '</div>'
     : '<p class="sub" style="color:var(--muted)">No cards in hand.</p>';
   return h + '</section>';
 }
@@ -349,7 +366,8 @@ function menuHTML() {
     <div class="facade" aria-hidden="true"><div class="roofm"></div><div class="win">${facade}</div><div class="base"></div></div>
     <h1>Grand Hotel</h1>
     <p class="tag">Serve your guests, fill your rooms,<br>keep the Emperor happy.</p>
-    <div class="deco" aria-hidden="true">🥐 🍰 ${dieSVG(5, 40).replace('<svg', '<svg style="transform:rotate(-12deg)"')} ${dieSVG(3, 40).replace('<svg', '<svg style="transform:rotate(14deg)"')} 🍷 ☕</div>
+    <div class="cast" aria-hidden="true">${PLAYER_AVATARS.map((a, i) => `<span class="av pav" style="--ring:${PLAYER_COLORS[i]}">${playerFace({ idx: i, name: '', avatar: a })}</span>`).join('')}</div>
+    <div class="deco" aria-hidden="true">${dish('s')} ${dish('c')} ${dieSVG(5, 40).replace('<svg', '<svg style="transform:rotate(-12deg)"')} ${dieSVG(3, 40).replace('<svg', '<svg style="transform:rotate(14deg)"')} ${dish('w')} ${dish('k')}</div>
     <div class="seg-wrap"><div class="eyebrow">Opponents 🤖</div>
       <div class="seg" role="radiogroup" aria-label="Opponents">${[1, 2, 3].map(n => `<button role="radio" aria-checked="${UI.bots === n}" data-act="bots" data-n="${n}">${n}</button>`).join('')}</div>
     </div>
@@ -366,24 +384,24 @@ function optionHTML(pr, o, i) {
     const g = o.guest;
     if (!g) return '';
     return `<button class="btn opt ${g.color}" data-act="opt" data-i="${i}" ${dis}>
-      <span class="av gav" aria-hidden="true">${g.emoji}</span>
+      <span class="av gav">${guestFace(g)}</span>
       <span class="ol">${esc(g.name)}<small>⭐${g.vp} · ${g.order.map(dish).join('')} · ${g.rewards.map(rewardShort).join(' ') || 'no reward'}</small></span></button>`;
   }
   if (o.card) {
     return `<button class="btn opt" data-act="opt" data-i="${i}" ${dis}>
-      <span class="av" aria-hidden="true">${o.card.emoji}</span>
+      <span class="av sav">${staffFace(o.card)}</span>
       <span class="ol">${esc(o.card.name)}<small>${STAFF_TYPE_LABEL[o.card.type]} — ${esc(o.card.text)}</small></span>
       ${o.cost !== undefined ? `<span class="oc">💰${o.cost}</span>` : ''}</button>`;
   }
   if (o.cube) return `<button class="btn opt" data-act="opt" data-i="${i}"><span class="av" aria-hidden="true">${dish(o.cube)}</span><span class="ol">${esc(o.label)}</span></button>`;
   if (o.guest) {
-    return `<button class="btn opt ${o.guest.color}" data-act="opt" data-i="${i}" ${dis}><span class="av gav" aria-hidden="true">${o.guest.emoji}</span><span class="ol">${esc(o.label)}</span></button>`;
+    return `<button class="btn opt ${o.guest.color}" data-act="opt" data-i="${i}" ${dis}><span class="av gav">${guestFace(o.guest)}</span><span class="ol">${esc(o.label)}</span></button>`;
   }
   if (o.guest === null) return '';
   let label = esc(o.label);
   let icon = '';
   if (pr.tag === 'strength') {
-    icon = `<span class="av" aria-hidden="true">${ACTION_EMOJI[o.sub]}</span>`;
+    icon = `<span class="av act" aria-hidden="true">${actionIcon(o.sub)}</span>`;
     if (o.boost) label += '<small>Pay 💰1 extra for +1</small>';
   }
   if (pr.tag === 'cubes') label = `${dish(pr.meta.a).repeat(o.a)}${dish(pr.meta.b).repeat(o.b)} <small>${esc(o.label)}</small>`;
@@ -427,11 +445,11 @@ function infoHTML() {
     }
   } else if (i.type === 'player') {
     const q = S.players[i.idx];
-    title = `${q.avatar} ${q.name}`;
-    body = `<p class="sub">⭐${q.vp} · 💰${q.money} · 👑${q.emp} · ${q.hand.length} staff in hand</p>${hotelHTML(q)}
-      <h3>Café</h3><div class="list">${q.cafe.map(g => g ? `<div class="row ${g.color}"><span class="av gav" aria-hidden="true">${g.emoji}</span><span style="flex:1"><span class="ttl">${esc(g.name)}</span><span class="sub">⭐${g.vp}</span></span><span class="dishes">${g.order.map((c, k) => `<span class="dish${g.filled[k] ? '' : ' miss'}">${dish(c)}</span>`).join('')}</span></div>` : '<div class="row empty"><span class="av">🪑</span>Empty seat</div>').join('')}</div>
+    title = q.name;
+    body = `<div class="who-head"><span class="av pav" style="--ring:${q.color}">${playerFace(q)}</span><p class="sub">⭐${q.vp} · 💰${q.money} · 👑${q.emp} · ${q.hand.length} staff in hand</p></div>${hotelHTML(q)}
+      <h3>Café</h3><div class="list">${q.cafe.map(g => g ? `<div class="row ${g.color}"><span class="av gav">${guestFace(g)}</span><span style="flex:1"><span class="ttl">${esc(g.name)}</span><span class="sub">⭐${g.vp}</span></span><span class="dishes">${g.order.map((c, k) => `<span class="dish${g.filled[k] ? '' : ' miss'}">${dish(c)}</span>`).join('')}</span></div>` : '<div class="row empty"><span class="av">🪑</span>Empty seat</div>').join('')}</div>
       <h3>Kitchen</h3><div class="kitchen" style="margin:0">${CUBES.map(c => `<span>${dish(c)} ${q.kitchen[c]}</span>`).join('')}</div>
-      <h3>Staff</h3>${q.staff.length ? `<div class="list">${q.staff.map(e => staffRow(e.card)).join('')}</div>` : '<p class="sub">None</p>'}`;
+      <h3>Staff</h3>${q.staff.length ? `<div class="staffgrid">${q.staff.map(e => staffCard(e.card)).join('')}</div>` : '<p class="sub">None</p>'}`;
   } else if (i.type === 'court') {
     title = 'Emperor & Politics';
     body = '<h3>Emperor tiles</h3>' + S.emperor.map((e, k) => `<div class="scard"><div class="sh"><span>👑 After round ${[3, 5, 7][k]}</span><span style="color:var(--muted);font-weight:500">back ${[3, 5, 7][k]}</span></div>
@@ -449,7 +467,7 @@ function infoHTML() {
     const r = S.results;
     body = `<p class="sub">${r[0].p.isBot ? `${esc(r[0].p.name)} wins.` : '🎉 You win! The Emperor is delighted.'}</p>
       <table class="res"><tr><th></th><th>Game</th><th>Staff</th><th>Rooms</th><th>💰</th><th>Cubes</th><th>Café</th><th>Total</th></tr>
-      ${r.map((x, n) => `<tr class="${n === 0 ? 'win' : ''}"><td>${x.p.avatar} ${esc(x.p.name)}</td>
+      ${r.map((x, n) => `<tr class="${n === 0 ? 'win' : ''}"><td><span class="av pav tiny" style="--ring:${x.p.color}">${playerFace(x.p)}</span> ${esc(x.p.name)}</td>
         <td>${x.before}</td><td>${x.staff}</td><td>${x.rooms}</td><td>${x.money}</td><td>${x.cubes}</td><td>${x.cafe}</td><td>${x.total}</td></tr>`).join('')}</table>
       <div class="foot"><button class="btn primary big" data-act="again">🎲 Play again</button></div>`;
   }

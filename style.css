@@ -354,3 +354,76 @@ table.res tr.win td { font-weight: 700; }
   .col-side { grid-column: auto; display: block; }
   .room { height: 64px; }
 }
+
+/* ---------- artwork ----------
+   Portraits fill their frames; item pictures sit inline with text. On light themes the ivory paper of
+   the food pictures is multiplied away so they blend into cards. */
+:root { --pic-blend: multiply; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --pic-blend: normal; } }
+:root[data-theme="dark"] { --pic-blend: normal; }
+
+.face { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
+.face.emo { display: flex; align-items: center; justify-content: center; }
+.av { overflow: hidden; }
+.av .face.emo { font-size: inherit; }
+.gav { box-shadow: 0 0 0 2px var(--c); background: var(--t); }
+.gav .face { border-radius: 50%; }
+.pav { box-shadow: 0 0 0 2px var(--ring); background: var(--surface-2); }
+.pav.tiny { width: 24px; height: 24px; vertical-align: middle; margin-right: 4px; }
+.ic { width: 1.35em; height: 1.35em; object-fit: contain; vertical-align: -0.35em; mix-blend-mode: var(--pic-blend); border-radius: 4px; }
+.dish:has(.ic) { width: 32px; height: 32px; border-radius: 9px; }
+.dish .ic { width: 28px; height: 28px; vertical-align: 0; }
+.kitchen .ic { width: 28px; height: 28px; vertical-align: -9px; }
+.order div span .ic { width: 40px; height: 40px; }
+.dtile .em { letter-spacing: 0; }
+.dtile .em .ic { width: 18px; height: 18px; margin-right: 1px; vertical-align: -4px; }
+.opt .av.act { width: auto; min-width: 36px; border-radius: 18px; padding: 0 6px; gap: 2px; }
+.opt .av.act .ic { width: 22px; height: 22px; vertical-align: 0; }
+.rewards .rw .av .ic { width: 26px; height: 26px; vertical-align: 0; }
+
+/* guests on offer: portrait first */
+.gtile { height: auto; }
+.gtile .pt { height: auto; aspect-ratio: 1; padding: 0; overflow: hidden; font-size: 26px; }
+.gtile .pt .face { object-position: center 25%; }
+.gtile .nm { padding-top: 5px; }
+.gtile .meta { padding-top: 4px; }
+.gd-pt { width: 112px; height: 112px; overflow: hidden; box-shadow: 0 0 0 3px var(--c); font-size: 48px; }
+.gd-pt .face { border-radius: 50%; }
+.row .gav { width: 44px; height: 44px; }
+.chip .av { width: 34px; height: 34px; }
+
+/* staff cards */
+.staffgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 8px; }
+.scard2 { display: flex; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px; align-items: flex-start; }
+.scard2.dim { opacity: .55; }
+.sc-pic { position: relative; width: 88px; height: 88px; flex: none; border-radius: 10px; overflow: hidden; background: var(--surface-2); font-size: 40px; }
+.sc-cost { position: absolute; left: 4px; bottom: 4px; background: var(--surface); color: var(--ink); border-radius: 10px; padding: 1px 6px; font-size: 12px; font-weight: 600; box-shadow: 0 1px 2px rgba(30, 34, 48, .2); }
+.sc-b { flex: 1; min-width: 0; padding-top: 2px; }
+.sc-n { font: 600 19px/1.1 var(--serif); }
+.sc-t { display: inline-block; margin-top: 3px; font-size: 10px; letter-spacing: .8px; text-transform: uppercase; font-weight: 600; color: var(--muted); }
+.sc-b p { margin: 4px 0 0; font-size: 13px; line-height: 1.35; }
+.sc-b .btn { margin-top: 8px; }
+.opt .av.sav { width: 56px; height: 56px; border-radius: 10px; flex: none; }
+
+/* rooms with door pictures */
+.room.art { background-size: cover; background-position: center bottom; border-style: solid; border-color: var(--c); }
+.room.art.occ { box-shadow: inset 0 0 0 1.5px var(--c); }
+.room .who { position: absolute; right: 3px; bottom: 3px; width: 24px; height: 24px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px var(--surface); background: var(--surface); font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.room.pick .pc { background: var(--surface); border-radius: 8px; padding: 2px 5px; box-shadow: 0 1px 3px rgba(30, 34, 48, .25); }
+.room.art.pick { background-size: cover; }
+
+/* menu cast */
+.cast { display: flex; gap: 10px; margin-top: 26px; }
+.cast .av { width: 56px; height: 56px; }
+.menu .deco .ic { width: 30px; height: 30px; vertical-align: middle; }
+.who-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.who-head .av { width: 56px; height: 56px; }
+.who-head .sub { margin: 0; }
+
+@media (min-width: 760px) {
+  .room .who { width: 30px; height: 30px; }
+  .chip .av { width: 40px; height: 40px; }
+  .gtile .pt { font-size: 34px; }
+  .sc-pic { width: 96px; height: 96px; }
+  .dtile .em .ic { width: 24px; height: 24px; vertical-align: -7px; }
+}
