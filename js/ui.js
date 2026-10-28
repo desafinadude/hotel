@@ -1,8 +1,9 @@
 // Mobile UI: renders the whole screen from state on every change and turns taps
 // into engine commands or prompt answers.
-// Four views share one header and a fixed bottom dock: Table, Hotel, Staff and Log.
+// On phones four views share one header and a fixed bottom dock: Table, Hotel, Staff and Log.
+// On tablets and desktops (760px+) all four are laid out side by side and sheets become dialogs.
 // Room choices (prepare, check in, turn occupied) are made on the Hotel view itself;
-// every other decision opens a bottom sheet.
+// every other decision opens a sheet.
 
 const UI = {
   bots: 1,
@@ -10,7 +11,11 @@ const UI = {
   started: false,
   tab: 'table',
   lastView: null,
+  lastCells: null,
 };
+
+const WIDE = window.matchMedia('(min-width: 760px)');
+WIDE.addEventListener('change', () => render());
 
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 const me = () => S && S.players.find(p => !p.isBot);
@@ -273,8 +278,21 @@ function staffView(p, mine) {
   return h + '</section>';
 }
 
-function logView() {
-  return `<section><div class="list logs">${S.log.slice().reverse().map(l => `<div class="lg">${l.pi !== undefined ? `<span class="pdot" style="background:${S.players[l.pi].color}"></span>` : '<span style="width:8px"></span>'}<span>${esc(youText(l.msg))}</span></div>`).join('') || '<div class="lg">Nothing yet.</div>'}</div></section>`;
+function logView(limit) {
+  const lines = S.log.slice().reverse();
+  return `<section><div class="list logs">${(limit ? lines.slice(0, limit) : lines).map(l => `<div class="lg">${l.pi !== undefined ? `<span class="pdot" style="background:${S.players[l.pi].color}"></span>` : '<span style="width:8px"></span>'}<span>${esc(youText(l.msg))}</span></div>`).join('') || '<div class="lg">Nothing yet.</div>'}</div></section>`;
+}
+
+// Tablet and desktop: every view at once.
+function deskHTML(p, mine, t, pr) {
+  return `<div class="desk">
+    <div class="col col-table"><section class="colh"><h2>At the table</h2></section>${tableView(p, mine, t)}</div>
+    <div class="col col-hotel"><section class="colh"><h2>Your hotel</h2></section>${hotelView(p, pr)}</div>
+    <div class="col col-side">
+      <div class="panel"><section class="colh"><h2>Staff</h2></section>${staffView(p, mine)}</div>
+      <div class="panel"><section class="colh"><h2>Log</h2></section>${logView(15)}</div>
+    </div>
+  </div>`;
 }
 
 function render() {
@@ -284,7 +302,9 @@ function render() {
   const t = S.turn;
   const mine = myTurn();
   const pr = S.prompt && !S.players[S.prompt.pi].isBot ? S.prompt : null;
-  const view = pr && pr.kind === 'cells' ? 'hotel' : UI.tab;
+  const wide = WIDE.matches;
+  const cells = pr && pr.kind === 'cells';
+  const view = wide ? 'table' : cells ? 'hotel' : UI.tab;
   const claimable = mine ? claimablePolitics(p).length : 0;
   const oprReady = mine && p.staff.some(e => e.card.type === 'opr' && !e.tapped);
 
@@ -295,7 +315,8 @@ function render() {
     <button class="roundbtn" data-act="help" aria-label="How to play" style="font:600 18px/1 var(--serif)">?</button>
   </header>`;
 
-  if (view === 'table') h += tableView(p, mine, t);
+  if (wide) h += deskHTML(p, mine, t, pr);
+  else if (view === 'table') h += tableView(p, mine, t);
   else if (view === 'hotel') h += hotelView(p, pr);
   else if (view === 'staff') h += staffView(p, mine);
   else h += logView();
@@ -306,14 +327,20 @@ function render() {
       <button class="btn sm" data-act="pass" ${mine && !t.dieTaken && !t.extra ? '' : 'disabled'}>Pass</button>
       <button class="btn sm primary" data-act="end" ${mine && (t.dieTaken || t.extra) ? '' : 'disabled'}>End turn</button>
     </div>
-    <nav class="nav">${TABS.map(([id, label, icon]) => `<button data-act="tab" data-tab="${id}" ${view === id ? 'aria-current="page"' : ''}>
+    ${wide ? '' : `<nav class="nav">${TABS.map(([id, label, icon]) => `<button data-act="tab" data-tab="${id}" ${view === id ? 'aria-current="page"' : ''}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>
-      ${label}${id === 'staff' && oprReady ? '<span class="dot"></span>' : ''}</button>`).join('')}</nav>
+      ${label}${id === 'staff' && oprReady ? '<span class="dot"></span>' : ''}</button>`).join('')}</nav>`}
   </div></div>`;
 
   app.innerHTML = h + sheetsHTML();
   calmSheets();
-  if (view !== UI.lastView) { UI.lastView = view; window.scrollTo(0, 0); }
+  if (!wide && view !== UI.lastView) { UI.lastView = view; window.scrollTo(0, 0); }
+  // On wide screens the hotel may be below the fold: bring it into view when a room must be chosen.
+  if (wide && cells && UI.lastCells !== pr) {
+    const el = document.querySelector('.col-hotel .banner');
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  UI.lastCells = cells ? pr : null;
 }
 
 function menuHTML() {
@@ -519,7 +546,10 @@ document.addEventListener('click', e => {
     case 'court': UI.info = { type: 'court' }; render(); break;
     case 'tab': UI.tab = d.tab; render(); break;
     case 'player':
-      if (+d.idx === p.idx) UI.tab = 'hotel';
+      if (+d.idx === p.idx) {
+        if (WIDE.matches) document.querySelector('.col-hotel').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        UI.tab = 'hotel';
+      }
       else UI.info = { type: 'player', idx: +d.idx };
       render();
       break;

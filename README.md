@@ -1,6 +1,6 @@
 # Grand Hotel
 
-A mobile-first (portrait) browser version of **Grand Austria Hotel** for one player against 1–3 bots.
+A mobile-first (portrait) browser version, with a side-by-side tablet/desktop layout up to 1200px, of **Grand Austria Hotel** for one player against 1–3 bots.
 No build step and no dependencies: open `index.html` in a browser, or serve the folder with any static host
 (e.g. GitHub Pages).
 
@@ -16,6 +16,7 @@ It is deployed to GitHub Pages by `.github/workflows/pages.yml` on every push to
 | `js/engine.js` | Rules engine (rounds, dice, passing/re-rolls, rooms, guests, staff, scoring) |
 | `js/bot.js` | Heuristic bot player |
 | `js/ui.js` | Rendering and touch input: Table, Hotel, Staff and Log tabs, bottom sheets for choices |
+| `docs/art-prompt.md` | Prompt and asset list for generating the artwork with an image AI |
 | `test/sim.js` | Headless bot-vs-bot simulation: `node test/sim.js [games] [players]` |
 
 ## Screens
@@ -24,6 +25,10 @@ It is deployed to GitHub Pages by `.github/workflows/pages.yml` on every push to
 - **Hotel** — points, krone and Emperor position, your 4×5 hotel (room choices are made here), the Emperor track.
 - **Staff** — hired staff (use once-per-round staff here) and the cards in your hand.
 - **Log** — everything that has happened this game.
+
+From 760px wide (tablets, desktops) the four screens are shown side by side instead of as tabs
+(Table and Hotel in two columns; from 1100px Staff and Log get a third column), the page is capped at
+1200px, and choices open as centred dialogs instead of bottom sheets.
 
 Pictures are emoji and inline SVG for now (one emoji per guest and staff card, in `js/data.js`).
 
