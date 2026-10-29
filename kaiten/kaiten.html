@@ -1,5 +1,13 @@
 <title>Kaiten</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#21385b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kaiten">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
@@ -674,7 +682,9 @@ const DISH_ART={
   s1:'sashimi-tuna',s2:'sashimi-salmon',s3:'sashimi-ebi',s4:'sashimi-mixed',s5:'sashimi-toro',s6:'sashimi-salmon',s7:'sashimi-mixed',s8:'sashimi-ebi',s9:'sashimi-tuna',s10:'sashimi-boat',
   x1:'bowl-chirashi',x2:'bowl-unadon',x3:'omakase',x4:'tempura',x5:'bowl-kaisen',x6:'chawanmushi',
 };
-const A=k=>'art/'+k+'.svg';
+// 'svg' = drawn placeholders; switch to 'webp' once tools/slice_sheets.py has cut the painted sheets
+const ART_EXT='svg';
+const A=k=>'art/'+k+'.'+ART_EXT;
 const dishArt=id=>A('dish-'+DISH_ART[id]);
 const chefArt=c=>A('chef-'+c);
 const ingArt=k=>A('ing-'+k);
